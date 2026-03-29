@@ -46,14 +46,17 @@ def collect_windows_events() -> list[AgentEvent]:
     try:
         raw_events = []
         for channel, event_ids in WINDOWS_CHANNELS.items():
-            raw_events.extend(
-                _query_channel_events(
-                    win32evtlog=win32evtlog,
-                    channel=channel,
-                    event_ids=event_ids,
-                    last_record_id=state.get(channel, 0),
+            try:
+                raw_events.extend(
+                    _query_channel_events(
+                        win32evtlog=win32evtlog,
+                        channel=channel,
+                        event_ids=event_ids,
+                        last_record_id=state.get(channel, 0),
+                    )
                 )
-            )
+            except Exception as exc:
+                print(f"Windows collector could not read channel {channel}: {exc}")
 
         normalized_events = []
         latest_record_ids = dict(state)
@@ -74,6 +77,7 @@ def collect_windows_events() -> list[AgentEvent]:
 
         if normalized_events:
             return normalized_events
+        print("Windows collector found no usable live events, falling back to sample events.")
     except Exception as exc:
         print(f"Windows collector failed, falling back to sample events: {exc}")
 
@@ -109,9 +113,9 @@ def _query_channel_events(
                     )
                     raw_events.append(parsed)
                 finally:
-                    win32evtlog.EvtClose(handle)
+                    _evt_close(win32evtlog, handle)
     finally:
-        win32evtlog.EvtClose(query_handle)
+        _evt_close(win32evtlog, query_handle)
 
     return raw_events
 
@@ -319,7 +323,7 @@ def _format_event_message(
     finally:
         if publisher_handle is not None:
             try:
-                win32evtlog.EvtClose(publisher_handle)
+                _evt_close(win32evtlog, publisher_handle)
             except Exception:
                 pass
 
@@ -382,3 +386,10 @@ def _load_state() -> dict[str, int]:
 
 def _save_state(state: dict[str, int]) -> None:
     STATE_FILE.write_text(json.dumps(state, indent=2), encoding="utf-8")
+
+
+def _evt_close(win32evtlog, handle) -> None:
+    close_fn = getattr(win32evtlog, "EvtClose", None)
+    if close_fn is None:
+        return
+    close_fn(handle)
