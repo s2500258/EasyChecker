@@ -34,6 +34,7 @@ def collect_events() -> list[AgentEvent]:
 
 
 def collect_windows_events() -> list[AgentEvent]:
+    settings = get_settings()
     state = _load_state()
 
     try:
