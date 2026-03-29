@@ -34,14 +34,14 @@ def collect_events() -> list[AgentEvent]:
 
 
 def collect_windows_events() -> list[AgentEvent]:
-    settings = get_settings()
     state = _load_state()
 
     try:
         import win32evtlog  # type: ignore
     except ImportError:
-        print("Windows Event Log support is unavailable, falling back to sample events.")
-        return build_sample_events(host=settings.hostname, os_type=settings.os_type)
+        raise RuntimeError(
+            "Windows Event Log support is unavailable. Install pywin32 and run on Windows."
+        )
 
     try:
         raw_events = []
@@ -77,11 +77,10 @@ def collect_windows_events() -> list[AgentEvent]:
 
         if normalized_events:
             return normalized_events
-        print("Windows collector found no usable live events, falling back to sample events.")
+        print("Windows collector found no usable live events in this cycle.")
+        return []
     except Exception as exc:
-        print(f"Windows collector failed, falling back to sample events: {exc}")
-
-    return build_sample_events(host=settings.hostname, os_type=settings.os_type)
+        raise RuntimeError(f"Windows collector failed: {exc}") from exc
 
 
 def _query_channel_events(
