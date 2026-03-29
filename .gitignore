@@ -1,0 +1,9 @@
+backend/.env
+agent/.env
+backend/*.db
+backend/__pycache__/
+backend/app/__pycache__/
+agent/__pycache__/
+agent/.collector_state.json
+agent/.venv/
+backend/.venv/

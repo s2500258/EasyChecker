@@ -1,0 +1,13 @@
+from fastapi import APIRouter
+
+from ..schemas import EventIn, IngestResponse
+from ..services.ingest_service import ingest_event
+
+
+router = APIRouter(prefix="/ingest", tags=["ingest"])
+
+
+@router.post("", response_model=IngestResponse)
+def create_event(event: EventIn) -> IngestResponse:
+    result = ingest_event(event)
+    return IngestResponse(**result)
