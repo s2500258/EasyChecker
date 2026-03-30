@@ -7,3 +7,5 @@ agent/__pycache__/
 agent/.collector_state.json
 agent/.venv/
 backend/.venv/
+frontend/node_modules/
+frontend/dist/

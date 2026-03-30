@@ -20,21 +20,30 @@ The system is organized into three main components:
 
 - `Agent` (`Python`) collects events from endpoint machines, with Windows as the MVP target.
 - `Backend` (`FastAPI`) ingests, stores, and processes events.
-- `Frontend` (`React`) displays events and alerts in a web interface.
+- `Frontend` (`React + Vite`) displays events and alerts in a web interface.
 
 ```text
 Agent -> Backend API -> Database -> Frontend
 ```
 
+## Current MVP Status
+
+The current project skeleton is working end to end:
+
+- Backend ingests, validates, stores, and lists events
+- Backend generates alerts for repeated failed logins
+- Windows-oriented agent can send sample events and collect live Windows events
+- Frontend dashboard can display events and alerts from the backend
+
 ## MVP Features
 
 - Event ingestion through a REST API
 - Storage of collected events in an SQLite database
-- Basic correlation rules, including:
-  - Multiple failed login attempts -> alert
-  - Repeated high-severity events -> alert
+- Basic correlation rule:
+  - 5 failed login attempts from the same host within 5 minutes -> alert
 - Alert generation and tracking
 - Web dashboard for browsing events and alerts
+- Windows event collection MVP with sample fallback mode for safe testing
 
 ## Technology Stack
 
@@ -50,12 +59,43 @@ Agent -> Backend API -> Database -> Frontend
 
 ```text
 EasyChecker/
-├── backend/
-├── frontend/
 ├── agent/
-├── docs/
+│   ├── agent.py
+│   ├── collector.py
+│   ├── config.py
+│   ├── sample_events.py
+│   ├── schemas.py
+│   ├── sender.py
+│   ├── .env.example
+│   └── requirements.txt
+├── backend/
+│   ├── app/
+│   │   ├── main.py
+│   │   ├── config.py
+│   │   ├── db.py
+│   │   ├── models.py
+│   │   ├── schemas.py
+│   │   ├── routes/
+│   │   └── services/
+│   ├── tests/
+│   ├── .env.example
+│   ├── manual_test.py
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   ├── .env.example
+│   ├── package.json
+│   └── vite.config.js
 └── README.md
 ```
+
+## Environment Files
+
+Real `.env` files are ignored by git and should be created locally from the templates:
+
+- `backend/.env.example` -> `backend/.env`
+- `agent/.env.example` -> `agent/.env`
+- `frontend/.env.example` -> `frontend/.env`
 
 ## Getting Started
 
@@ -63,8 +103,10 @@ EasyChecker/
 
 ```bash
 cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+python3 -m venv .venv
+./.venv/bin/python -m pip install -r requirements.txt
+cp .env.example .env
+./.venv/bin/python -m uvicorn app.main:app --reload
 ```
 
 Backend URL:
@@ -83,6 +125,7 @@ http://127.0.0.1:8000/docs
 
 ```bash
 cd frontend
+cp .env.example .env
 npm install
 npm run dev
 ```
@@ -93,12 +136,24 @@ Frontend URL:
 http://localhost:5173
 ```
 
-### 3. Run the agent
+By default the frontend uses:
+
+```text
+VITE_API_BASE=/api/v1
+```
+
+and the Vite dev server proxies `/api` requests to `http://127.0.0.1:8000`.
+
+### 3. Run the agent on macOS/Linux
+
+This is mainly useful for sample-mode connectivity testing.
 
 ```bash
 cd agent
-pip install -r requirements.txt
-python agent.py
+python3 -m venv .venv
+./.venv/bin/python -m pip install -r requirements.txt
+cp .env.example .env
+./.venv/bin/python agent.py
 ```
 
 The agent sends events to:
@@ -107,49 +162,174 @@ The agent sends events to:
 http://127.0.0.1:8000/api/v1/ingest
 ```
 
-## Example Event
+### 4. Run the agent on Windows
+
+Use PowerShell and run the agent without activating the virtual environment:
+
+```powershell
+cd C:\EasyChecker\agent
+python -m venv .venv
+.\.venv\Scripts\python -m pip install -r requirements.txt
+copy .env.example .env
+.\.venv\Scripts\python agent.py
+```
+
+For the backend on Windows:
+
+```powershell
+cd C:\EasyChecker\backend
+python -m venv .venv
+.\.venv\Scripts\python -m pip install -r requirements.txt
+copy .env.example .env
+.\.venv\Scripts\python -m uvicorn app.main:app --reload
+```
+
+## Recommended Agent Test Flow
+
+### Step 1. Safe connectivity test
+
+Set `agent/.env` to:
+
+```env
+EVENT_SOURCE=sample
+RUN_ONCE=true
+MAX_EVENTS_PER_CYCLE=5
+```
+
+Run:
+
+```bash
+python3 agent.py
+```
+
+or on Windows:
+
+```powershell
+.\.venv\Scripts\python agent.py
+```
+
+This verifies:
+
+- agent configuration
+- HTTP sending
+- backend ingest
+- database storage
+
+### Step 2. Live Windows event test
+
+Set `agent/.env` to:
+
+```env
+EVENT_SOURCE=windows
+RUN_ONCE=true
+MAX_EVENTS_PER_CYCLE=5
+```
+
+Then run the agent again.
+
+The collector currently targets:
+
+- `4625` -> `login_failure`
+- `4624` -> `login_success`
+- `4688` -> `process_created`
+- `7036` -> `service_state_change`
+- `7036` with stopped state -> `service_stopped`
+
+If using live Windows collection:
+
+- run PowerShell as Administrator when needed
+- ensure `pywin32` is installed
+- if `4688` does not appear, enable Process Creation auditing
+
+Example command:
+
+```powershell
+auditpol /set /subcategory:"Process Creation" /success:enable /failure:enable
+```
+
+## Backend API
+
+### Main endpoints
+
+- `POST /api/v1/ingest`
+- `GET /api/v1/events`
+- `GET /api/v1/alerts`
+
+### Example Event
 
 ```json
 {
   "ts": "2026-03-15T12:05:10Z",
   "host": "WIN-PC-01",
+  "os_type": "windows",
   "event_type": "authentication",
+  "event_code": "4625",
+  "category": "login_failure",
   "severity": "MEDIUM",
-  "message": "Failed login attempt"
+  "username": "student",
+  "ip_address": "192.168.1.50",
+  "message": "Failed login attempt",
+  "source": "agent_sample",
+  "raw_data": {
+    "provider": "Security",
+    "logon_type": 3,
+    "status": "0xC000006D"
+  }
 }
 ```
 
-## Example Alert
+### Example Alert
 
-| Field | Value |
-| --- | --- |
-| Type | Brute force attempt |
-| Condition | 5 failed login attempts within 5 minutes |
-| Severity | HIGH |
+```json
+{
+  "type": "Brute force attempt",
+  "severity": "HIGH",
+  "host": "WIN-PC-01",
+  "message": "5 failed logins detected from WIN-PC-01 within 5 minutes.",
+  "created_at": "2026-03-27T14:12:48Z",
+  "event_count": 5
+}
+```
 
-## Data Collection
+## Testing
 
-In the MVP version:
+### Backend automated tests
 
-- Data is collected primarily from Windows machines.
-- The agent reads basic system and security events, such as login failures.
-- Events are sent to the backend in JSON format.
-- Support for macOS and Linux may be added in future versions.
+```bash
+cd backend
+./.venv/bin/python -m pytest -q
+```
+
+### Manual backend sample-event test
+
+```bash
+cd backend
+./.venv/bin/python manual_test.py
+```
+
+This sends 5 failed-login events and should generate 1 alert.
+
+## Notes
+
+- `backend/.env` and `agent/.env` are intentionally not committed to GitHub
+- create local `.env` files from `.env.example`
+- `backend/app.db` is local SQLite data and is also ignored by git
+- current Windows agent collection is MVP-level and intended for educational use
 
 ## Limitations
 
-- No authentication system yet (demo mode)
+- No authentication system yet
 - No advanced correlation or machine learning
-- No automated response actions
+- No service/daemon mode for the agent yet
 - Limited OS support with a Windows-focused MVP
 
 ## Future Work
 
 - Support for macOS and Linux agents
 - More advanced correlation rules
-- Improved UI and dashboards
+- Improved frontend filtering and drill-down
 - Real-time event streaming
-- Integration with external log sources
+- Better agent hardening and background execution
 
 ## License
 
@@ -159,4 +339,3 @@ This project is developed for educational purposes only.
 
 Aleksandr Akulov  
 Business College student (`WP25K`)
-# EasyChecker
