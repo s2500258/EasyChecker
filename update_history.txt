@@ -1,0 +1,196 @@
+EasyChecker Update History
+
+1. Defined the Phase 1 backend-first direction: one event should be ingested, stored in SQLite, and optionally generate one alert.
+
+2. Created the FastAPI backend skeleton under `backend/app` with:
+   - `main.py`
+   - `config.py`
+   - `db.py`
+   - `models.py`
+   - `schemas.py`
+   - route modules for ingest, events, and alerts
+   - service modules for ingest logic and rule evaluation
+
+3. Added backend dependency management in `backend/requirements.txt`.
+
+4. Added backend environment configuration support through `backend/.env` and `backend/.env.example`.
+
+5. Implemented SQLite connection handling and table creation for:
+   - `events`
+   - `alerts`
+
+6. Implemented `POST /api/v1/ingest` to:
+   - validate incoming JSON
+   - store events
+   - evaluate detection rules
+   - return the stored event and generated alerts
+
+7. Implemented `GET /api/v1/events` to return events ordered from newest to oldest.
+
+8. Implemented `GET /api/v1/alerts` to return generated alerts ordered from newest to oldest.
+
+9. Added the first backend detection rule:
+   - 5 failed login attempts from the same host within 5 minutes -> 1 alert
+
+10. Added `backend/manual_test.py` to send a sample sequence of failed-login events through the ingest endpoint.
+
+11. Added backend automated tests in `backend/tests/test_api.py` to verify:
+   - successful event ingest and alert generation
+   - validation failure on invalid payloads
+
+12. Installed and used `pytest` for backend verification.
+
+13. Verified the backend end-to-end in-process with FastAPI test tooling because local port binding was restricted in the sandbox environment.
+
+14. Extended the `events` model and API schema with additional normalized security fields:
+   - `os_type`
+   - `event_code`
+   - `category`
+   - `username`
+   - `ip_address`
+   - `raw_data`
+
+15. Added lightweight schema migration logic so existing SQLite databases can receive new event columns through `ALTER TABLE`.
+
+16. Added JSON serialization/deserialization helpers for `raw_data`.
+
+17. Updated backend tests and manual event payloads to include the new normalized fields.
+
+18. Created the Phase 2 agent MVP structure in `agent/` with:
+   - `agent.py`
+   - `config.py`
+   - `collector.py`
+   - `sender.py`
+   - `schemas.py`
+   - `sample_events.py`
+   - `requirements.txt`
+   - `.env.example`
+
+19. Implemented the first agent execution loop in `agent.py` to:
+   - load settings
+   - collect events
+   - send them to the backend
+   - optionally repeat on an interval
+
+20. Implemented agent configuration loading from `agent/.env` with support for:
+   - backend URL
+   - polling interval
+   - hostname
+   - OS type
+   - event source
+   - max events per cycle
+   - run-once mode
+
+21. Added a normalized `AgentEvent` model for the agent pipeline.
+
+22. Added payload trimming in the agent so oversized string fields are shortened before sending them to the backend.
+
+23. Implemented the HTTP sender layer in `agent/sender.py` using the Python standard library.
+
+24. Implemented sample event generation for safe end-to-end testing without live Windows logs.
+
+25. Added initial sample agent events for:
+   - failed login
+   - successful login
+   - service state change
+
+26. Expanded the sample agent events with:
+   - `process_created`
+   - `service_stopped`
+
+27. Added `RUN_ONCE` support so the agent can either:
+   - execute one collection cycle and exit
+   - continue running in a loop
+
+28. Simplified the agent runtime dependencies so the base agent works mostly with the Python standard library.
+
+29. Added optional Windows-specific dependency support for live collection:
+   - `pywin32` on Windows
+
+30. Implemented a live Windows collector in `agent/collector.py` that:
+   - targets `Security` and `System` channels
+   - reads event IDs `4624`, `4625`, `4688`, and `7036`
+   - parses XML event payloads
+   - normalizes them into `AgentEvent`
+
+31. Added record state tracking in `agent/.collector_state.json` so already processed Windows events are not re-sent on the next cycle.
+
+32. Added compatibility handling for environments where `win32evtlog.EvtClose` is not exposed.
+
+33. Updated the Windows collector so one unreadable channel (for example `Security`) does not prevent reading other channels such as `System`.
+
+34. Removed misleading sample fallback behavior from live Windows mode:
+   - `EVENT_SOURCE=sample` now means sample only
+   - `EVENT_SOURCE=windows` now means live Windows events only
+
+35. Performed live Windows-machine testing and confirmed that the current agent is able to collect and send real events into the backend database.
+
+36. Created the Phase 3 frontend MVP in `frontend/` using React and Vite.
+
+37. Added frontend project setup files:
+   - `package.json`
+   - `vite.config.js`
+   - `index.html`
+   - `frontend/.env.example`
+
+38. Implemented the frontend app shell and navigation in:
+   - `App.jsx`
+   - `Layout.jsx`
+
+39. Implemented frontend API access for:
+   - `GET /api/v1/events`
+   - `GET /api/v1/alerts`
+
+40. Implemented the Dashboard page showing:
+   - total events
+   - total alerts
+   - high alerts
+   - unique hosts
+   - latest events
+   - latest alerts
+
+41. Implemented the Events page with:
+   - events table
+   - host filter
+   - severity filter
+   - category filter
+
+42. Implemented the Alerts page with:
+   - alerts table
+   - host filter
+   - severity filter
+
+43. Added reusable frontend UI pieces:
+   - metric cards
+   - status badges
+   - filter bar
+   - events table
+   - alerts table
+
+44. Added frontend formatting helpers for:
+   - timestamps
+   - shortened text
+   - unique sorted filter values
+
+45. Added MVP frontend styling for the dashboard and table views.
+
+46. Updated `.gitignore` to exclude local runtime artifacts such as:
+   - backend and agent `.env` files
+   - SQLite database files
+   - virtual environments
+   - frontend build and dependency folders
+   - agent collector state file
+
+47. Rewrote `README.md` so it reflects the current real project state, including:
+   - architecture
+   - working MVP features
+   - environment file handling
+   - backend/frontend startup steps
+   - correct Windows agent commands
+   - sample and live Windows testing flow
+
+48. Added concise English explanatory comments to the agent modules.
+
+49. Added concise English explanatory comments to the backend modules.
+
+50. Added concise English explanatory comments to the frontend modules.

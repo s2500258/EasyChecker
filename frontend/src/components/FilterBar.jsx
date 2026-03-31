@@ -1,3 +1,4 @@
+// Reusable host/severity/category filters for table pages.
 export default function FilterBar({ filters, onChange, options, showCategory = false }) {
   return (
     <section className="filter-bar">

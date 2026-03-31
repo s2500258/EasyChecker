@@ -5,11 +5,13 @@ from ..schemas import EventOut
 from ..utils import load_raw_data
 
 
+# Read-only events endpoint for frontend pages and manual inspection.
 router = APIRouter(prefix="/events", tags=["events"])
 
 
 @router.get("", response_model=list[EventOut])
 def list_events() -> list[EventOut]:
+    # Return newest events first so recent activity appears immediately in the UI.
     with db_cursor() as cursor:
         cursor.execute(
             """
@@ -34,6 +36,7 @@ def list_events() -> list[EventOut]:
         )
         rows = cursor.fetchall()
 
+    # Restore JSON metadata from SQLite text before creating response models.
     events = []
     for row in rows:
         event = dict(row)

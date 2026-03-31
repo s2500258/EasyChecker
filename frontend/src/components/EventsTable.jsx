@@ -1,6 +1,7 @@
 import StatusBadge from "./StatusBadge";
 import { formatDateTime, shortenText } from "../utils/formatters";
 
+// Tabular view of normalized backend events.
 export default function EventsTable({ events }) {
   return (
     <div className="table-shell">

@@ -2,6 +2,7 @@ import AlertsTable from "../components/AlertsTable";
 import EventsTable from "../components/EventsTable";
 import MetricCard from "../components/MetricCard";
 
+// Overview page with summary cards plus the latest events and alerts.
 export default function DashboardPage({
   events,
   alerts,

@@ -1,6 +1,7 @@
 import StatusBadge from "./StatusBadge";
 import { formatDateTime, shortenText } from "../utils/formatters";
 
+// Tabular view of generated backend alerts.
 export default function AlertsTable({ alerts }) {
   return (
     <div className="table-shell">

@@ -8,6 +8,9 @@ from pathlib import Path
 AGENT_DIR = Path(__file__).resolve().parent
 
 
+# Centralized runtime settings for the agent.
+# Values come from agent/.env first and fall back to OS environment variables
+# or hardcoded defaults when no local override is present.
 @dataclass(frozen=True)
 class Settings:
     backend_url: str
@@ -21,6 +24,7 @@ class Settings:
 
 @lru_cache
 def get_settings() -> Settings:
+    # Cache settings so every module in the current process uses the same values.
     env_values = _load_env_file(AGENT_DIR / ".env")
     return Settings(
         backend_url=env_values.get(
@@ -36,6 +40,7 @@ def get_settings() -> Settings:
 
 
 def _load_env_file(path: Path) -> dict[str, str]:
+    # Start with the real process environment, then override from the local .env file.
     values = dict(os.environ)
     if not path.exists():
         return values

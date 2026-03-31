@@ -5,6 +5,9 @@ from config import get_settings
 from sender import send_event
 
 
+# Main entry point for the agent.
+# This module coordinates the high-level loop: load settings, collect events,
+# send them to the backend, and sleep between cycles when needed.
 def run_agent() -> None:
     settings = get_settings()
     print(
@@ -15,9 +18,12 @@ def run_agent() -> None:
 
     while True:
         try:
+            # Collect a batch of normalized events from the configured source.
             events = collect_events()
             if not events:
                 print("No events collected in this cycle.")
+
+            # Send events one by one so a single bad event does not block the batch.
             for event in events:
                 result = send_event(event)
                 alert_count = len(result.get("alerts", []))
@@ -31,6 +37,7 @@ def run_agent() -> None:
         except Exception as exc:
             print(f"Agent cycle failed: {exc}")
 
+        # In one-shot mode the agent exits after a single collection/send cycle.
         if settings.run_once:
             print("Agent finished one cycle and is exiting.")
             break

@@ -4,6 +4,7 @@ import AlertsTable from "../components/AlertsTable";
 import FilterBar from "../components/FilterBar";
 import { sortUniqueValues } from "../utils/formatters";
 
+// Full alerts page with simple host and severity filters.
 export default function AlertsPage({ alerts, loading, error }) {
   const [filters, setFilters] = useState({
     host: "",

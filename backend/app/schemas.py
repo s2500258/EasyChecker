@@ -3,6 +3,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
+# Request model for incoming agent events.
 class EventIn(BaseModel):
     ts: str = Field(..., description="Event timestamp in ISO 8601 format")
     host: str = Field(..., min_length=1, max_length=255)
@@ -18,6 +19,7 @@ class EventIn(BaseModel):
     raw_data: Optional[dict[str, Any]] = None
 
 
+# Response model for stored events returned by the API.
 class EventOut(EventIn):
     model_config = ConfigDict(from_attributes=True)
 
@@ -25,6 +27,7 @@ class EventOut(EventIn):
     created_at: str
 
 
+# Response model for generated alerts.
 class AlertOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -37,6 +40,7 @@ class AlertOut(BaseModel):
     event_count: int
 
 
+# Combined response returned by the ingest endpoint.
 class IngestResponse(BaseModel):
     event: EventOut
     alerts: list[AlertOut]

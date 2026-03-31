@@ -4,6 +4,7 @@ import EventsTable from "../components/EventsTable";
 import FilterBar from "../components/FilterBar";
 import { sortUniqueValues } from "../utils/formatters";
 
+// Full events page with lightweight client-side filtering.
 export default function EventsPage({ events, loading, error }) {
   const [filters, setFilters] = useState({
     host: "",
@@ -20,6 +21,7 @@ export default function EventsPage({ events, loading, error }) {
   );
 
   const filteredEvents = useMemo(() => {
+    // Filtering stays client-side for the MVP while the dataset remains small.
     return events.filter((event) => {
       const matchesHost = filters.host
         ? event.host?.toLowerCase().includes(filters.host.toLowerCase())

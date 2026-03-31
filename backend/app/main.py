@@ -7,12 +7,14 @@ from .routes.events import router as events_router
 from .routes.ingest import router as ingest_router
 
 
+# FastAPI application entry point.
 settings = get_settings()
 app = FastAPI(title=settings.app_name, debug=settings.debug)
 
 
 @app.on_event("startup")
 def on_startup() -> None:
+    # Make sure tables and missing columns exist before serving requests.
     init_db()
 
 

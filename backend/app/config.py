@@ -8,6 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 
+# Centralized backend configuration loaded from backend/.env.
 class Settings(BaseSettings):
     app_name: str = "EasyChecker Backend"
     api_v1_prefix: str = "/api/v1"
@@ -53,4 +54,5 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    # Cache settings so the whole process shares one consistent config object.
     return Settings()

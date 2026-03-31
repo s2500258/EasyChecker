@@ -9,6 +9,10 @@ from sample_events import build_sample_events
 from schemas import AgentEvent
 
 
+# Event collection and normalization layer.
+# This module chooses the source (sample or Windows), reads raw events,
+# converts them into AgentEvent objects, and keeps lightweight state so the
+# same Windows records are not sent again on the next cycle.
 STATE_FILE = Path(__file__).resolve().parent / ".collector_state.json"
 WINDOWS_CHANNELS = {
     "Security": [4624, 4625, 4688],
@@ -20,10 +24,12 @@ XML_NAMESPACE = {"evt": "http://schemas.microsoft.com/win/2004/08/events/event"}
 def collect_events() -> list[AgentEvent]:
     settings = get_settings()
 
+    # Sample mode is useful for safe end-to-end testing without depending on Windows logs.
     if settings.event_source == "sample":
         events = build_sample_events(host=settings.hostname, os_type=settings.os_type)
         return events[: settings.max_events_per_cycle]
 
+    # Windows mode attempts to read live events from the local machine.
     if settings.event_source == "windows":
         events = collect_windows_events()
         return list(events)[: settings.max_events_per_cycle]
@@ -35,6 +41,7 @@ def collect_events() -> list[AgentEvent]:
 
 def collect_windows_events() -> list[AgentEvent]:
     settings = get_settings()
+    # Persisted record IDs let the agent continue from the last processed event.
     state = _load_state()
 
     try:
@@ -48,6 +55,8 @@ def collect_windows_events() -> list[AgentEvent]:
         raw_events = []
         for channel, event_ids in WINDOWS_CHANNELS.items():
             try:
+                # Query each channel independently so one permission issue does not
+                # prevent reading the other available channels.
                 raw_events.extend(
                     _query_channel_events(
                         win32evtlog=win32evtlog,
@@ -62,6 +71,7 @@ def collect_windows_events() -> list[AgentEvent]:
         normalized_events = []
         latest_record_ids = dict(state)
 
+        # Sort before normalization so events are sent in a predictable order.
         for raw_event in sorted(
             raw_events, key=lambda item: (item["timestamp"], item["record_id"])
         ):
@@ -87,6 +97,8 @@ def collect_windows_events() -> list[AgentEvent]:
 def _query_channel_events(
     *, win32evtlog, channel: str, event_ids: list[int], last_record_id: int
 ) -> list[dict[str, Any]]:
+    # Query newest records first, then stop as soon as we hit one that was
+    # already processed in a previous cycle.
     query = _build_query(event_ids)
     flags = win32evtlog.EvtQueryChannelPath | win32evtlog.EvtQueryReverseDirection
     query_handle = win32evtlog.EvtQuery(channel, flags, query)
@@ -126,6 +138,7 @@ def _build_query(event_ids: list[int]) -> str:
 
 
 def _parse_event_xml(*, channel: str, xml_payload: str) -> dict[str, Any]:
+    # The Windows API returns raw XML, so we convert it into a simpler dict first.
     root = ET.fromstring(xml_payload)
     system = root.find("evt:System", XML_NAMESPACE)
     event_data = root.find("evt:EventData", XML_NAMESPACE)
@@ -162,6 +175,7 @@ def _parse_event_xml(*, channel: str, xml_payload: str) -> dict[str, Any]:
 def _normalize_windows_event(
     raw_event: dict[str, Any], fallback_host: str
 ) -> Optional[AgentEvent]:
+    # Map known Windows Event IDs to the normalized categories used by the backend.
     event_id = raw_event["event_id"]
     if event_id == 4625:
         return _normalize_failed_login(raw_event, fallback_host)
@@ -175,6 +189,7 @@ def _normalize_windows_event(
 
 
 def _normalize_failed_login(raw_event: dict[str, Any], fallback_host: str) -> AgentEvent:
+    # Event ID 4625: failed authentication attempt.
     data = raw_event["event_data"]
     username = _pick_first(data, ["TargetUserName", "SubjectUserName"])
     ip_address = _clean_ip(_pick_first(data, ["IpAddress"]))
@@ -206,6 +221,7 @@ def _normalize_failed_login(raw_event: dict[str, Any], fallback_host: str) -> Ag
 def _normalize_successful_login(
     raw_event: dict[str, Any], fallback_host: str
 ) -> AgentEvent:
+    # Event ID 4624: successful authentication.
     data = raw_event["event_data"]
     username = _pick_first(data, ["TargetUserName", "SubjectUserName"])
     ip_address = _clean_ip(_pick_first(data, ["IpAddress"]))
@@ -235,6 +251,7 @@ def _normalize_successful_login(
 def _normalize_process_created(
     raw_event: dict[str, Any], fallback_host: str
 ) -> AgentEvent:
+    # Event ID 4688: process creation.
     data = raw_event["event_data"]
     process_name = _pick_first(data, ["NewProcessName", "ProcessName"]) or "unknown"
     command_line = _pick_first(data, ["CommandLine"])
@@ -265,6 +282,7 @@ def _normalize_process_created(
 
 
 def _normalize_service_change(raw_event: dict[str, Any], fallback_host: str) -> AgentEvent:
+    # Event ID 7036: service state change, including stopped services.
     service_name = _pick_first(raw_event["event_data"], ["param1", "ServiceName"])
     state = _pick_first(raw_event["event_data"], ["param2", "State"])
 
@@ -307,6 +325,8 @@ def _normalize_service_change(raw_event: dict[str, Any], fallback_host: str) -> 
 def _format_event_message(
     *, win32evtlog, event_handle, provider_name: Optional[str]
 ) -> str:
+    # Windows can provide a human-readable message for the event if publisher
+    # metadata is available. If not, we fall back to our own shorter message.
     if not provider_name:
         return ""
 
@@ -375,6 +395,7 @@ def _find_attr(parent, path: str, attr_name: str) -> Optional[str]:
 
 
 def _load_state() -> dict[str, int]:
+    # State is intentionally tiny: just the latest record ID per channel.
     if not STATE_FILE.exists():
         return {}
     try:
@@ -389,6 +410,7 @@ def _save_state(state: dict[str, int]) -> None:
 
 
 def _evt_close(win32evtlog, handle) -> None:
+    # Some pywin32 environments do not expose EvtClose, so close conditionally.
     close_fn = getattr(win32evtlog, "EvtClose", None)
     if close_fn is None:
         return

@@ -6,6 +6,7 @@ from ..utils import parse_event_timestamp, utc_now_iso
 
 
 def evaluate_event_rules(*, host: str, message: str) -> list[dict]:
+    # The MVP rule focuses on repeated failed logins from the same host.
     settings = get_settings()
     if "failed login" not in message.lower():
         return []
@@ -14,6 +15,7 @@ def evaluate_event_rules(*, host: str, message: str) -> list[dict]:
     if latest_matches != settings.failed_login_threshold:
         return []
 
+    # Create the alert only when the threshold is first reached in the window.
     alert = {
         "type": "Brute force attempt",
         "severity": "HIGH",
@@ -40,6 +42,7 @@ def evaluate_event_rules(*, host: str, message: str) -> list[dict]:
 
 
 def _count_recent_failed_logins(*, host: str) -> int:
+    # Count failures relative to the newest relevant event for the host.
     settings = get_settings()
 
     with db_cursor() as cursor:

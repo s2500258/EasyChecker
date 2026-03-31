@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from schemas import AgentEvent
 
 
+# Deterministic sample events used for safe connectivity testing and local demos.
 def build_sample_events(*, host: str, os_type: str) -> list[AgentEvent]:
     timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 

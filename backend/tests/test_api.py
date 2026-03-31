@@ -10,6 +10,7 @@ from app.models import init_db
 
 
 def _reset_database() -> None:
+    # Reset SQLite tables so each test starts from a clean state.
     init_db()
     db_path = Path(get_settings().sqlite_db_path)
     connection = sqlite3.connect(db_path)
@@ -23,6 +24,7 @@ def _reset_database() -> None:
 
 
 def _failed_login_payload(offset_seconds: int) -> dict:
+    # Build realistic event data that should trigger the backend rule.
     timestamp = (
         datetime.now(timezone.utc) - timedelta(minutes=4, seconds=offset_seconds)
     ).isoformat().replace("+00:00", "Z")
@@ -43,6 +45,7 @@ def _failed_login_payload(offset_seconds: int) -> dict:
 
 
 def test_ingest_events_and_generate_one_alert() -> None:
+    # End-to-end test for ingest, storage, listing, and alert generation.
     _reset_database()
 
     with TestClient(app) as client:
@@ -72,6 +75,7 @@ def test_ingest_events_and_generate_one_alert() -> None:
 
 
 def test_ingest_rejects_invalid_payload() -> None:
+    # Validation test: required event fields must be present.
     _reset_database()
 
     invalid_payload = {

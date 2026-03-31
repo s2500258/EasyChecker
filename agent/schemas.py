@@ -2,6 +2,8 @@ from dataclasses import asdict, dataclass
 from typing import Any, Optional
 
 
+# These limits mirror the backend schema so the agent can trim oversized strings
+# before they trigger HTTP 422 validation errors during ingest.
 FIELD_LIMITS = {
     "host": 255,
     "os_type": 50,
@@ -16,6 +18,7 @@ FIELD_LIMITS = {
 }
 
 
+"""Normalized event model shared across the agent pipeline."""
 @dataclass
 class AgentEvent:
     ts: str
@@ -32,6 +35,7 @@ class AgentEvent:
     raw_data: Optional[dict[str, Any]] = None
 
     def model_dump(self) -> dict[str, Any]:
+        # Convert the dataclass to a plain JSON-ready dict and enforce field limits.
         payload = asdict(self)
         for field_name, limit in FIELD_LIMITS.items():
             value = payload.get(field_name)

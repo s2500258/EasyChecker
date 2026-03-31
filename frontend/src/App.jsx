@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { key: "alerts", label: "Alerts" },
 ];
 
+// Top-level frontend coordinator for data loading and simple page navigation.
 export default function App() {
   const [activePage, setActivePage] = useState("dashboard");
   const [events, setEvents] = useState([]);
@@ -29,6 +30,7 @@ export default function App() {
     }
 
     try {
+      // Load events and alerts together so dashboard data stays aligned.
       const [eventsData, alertsData] = await Promise.all([
         fetchEvents(),
         fetchAlerts(),
@@ -59,6 +61,7 @@ export default function App() {
     lastUpdated,
   };
 
+  // Keep routing simple for the MVP by switching pages from local state.
   let content = <DashboardPage {...pageProps} />;
   if (activePage === "events") {
     content = <EventsPage {...pageProps} />;

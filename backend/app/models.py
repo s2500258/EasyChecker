@@ -2,6 +2,7 @@ from .db import db_cursor
 
 
 def init_db() -> None:
+    # Create the MVP tables and backfill any newer event columns.
     with db_cursor(commit=True) as cursor:
         cursor.execute(
             """
@@ -40,6 +41,7 @@ def init_db() -> None:
 
 
 def _ensure_event_columns(cursor) -> None:
+    # Older local databases may miss fields added after the first schema version.
     cursor.execute("PRAGMA table_info(events)")
     existing_columns = {row[1] for row in cursor.fetchall()}
 

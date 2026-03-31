@@ -1,3 +1,4 @@
+// Small UI formatting helpers shared across the dashboard and table views.
 export function formatDateTime(value) {
   if (!value) {
     return "N/A";

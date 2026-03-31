@@ -1,5 +1,6 @@
 import { formatDateTime } from "../utils/formatters";
 
+// Shared frame for the dashboard, navigation, and refresh controls.
 export default function Layout({
   activePage,
   navItems,
