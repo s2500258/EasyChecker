@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     debug: bool = False
     failed_login_threshold: int = 5
     failed_login_window_minutes: int = 5
+    suspicious_process_threshold: int = 3
+    suspicious_process_window_minutes: int = 5
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",

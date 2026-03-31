@@ -41,7 +41,9 @@ def collect_events() -> list[AgentEvent]:
 
 def collect_windows_events() -> list[AgentEvent]:
     settings = get_settings()
-    # Persisted record IDs let the agent continue from the last processed event.
+    # Persisted record IDs let the agent continue from the last processed event
+    # for each Windows channel. Without this state, every polling cycle would
+    # re-read old records and send duplicate events to the backend.
     state = _load_state()
 
     try:
@@ -55,8 +57,10 @@ def collect_windows_events() -> list[AgentEvent]:
         raw_events = []
         for channel, event_ids in WINDOWS_CHANNELS.items():
             try:
-                # Query each channel independently so one permission issue does not
-                # prevent reading the other available channels.
+                # Query each channel independently.
+                # This matters on Windows because access to `Security` is stricter
+                # than access to `System`, and we do not want one denied channel
+                # to block collection from the other channel.
                 raw_events.extend(
                     _query_channel_events(
                         win32evtlog=win32evtlog,
@@ -72,6 +76,8 @@ def collect_windows_events() -> list[AgentEvent]:
         latest_record_ids = dict(state)
 
         # Sort before normalization so events are sent in a predictable order.
+        # We query newest-first for efficiency, but for downstream processing
+        # it is easier if the final batch is handled oldest-to-newest.
         for raw_event in sorted(
             raw_events, key=lambda item: (item["timestamp"], item["record_id"])
         ):
@@ -84,6 +90,8 @@ def collect_windows_events() -> list[AgentEvent]:
             )
 
         if latest_record_ids != state:
+            # Save state only after successful normalization so the next cycle
+            # starts after the newest event we have actually accepted.
             _save_state(latest_record_ids)
 
         if normalized_events:
@@ -97,27 +105,45 @@ def collect_windows_events() -> list[AgentEvent]:
 def _query_channel_events(
     *, win32evtlog, channel: str, event_ids: list[int], last_record_id: int
 ) -> list[dict[str, Any]]:
-    # Query newest records first, then stop as soon as we hit one that was
-    # already processed in a previous cycle.
+    # Build a Windows Event Log query that filters by Event ID inside a single channel.
+    # Example:
+    #   Security -> 4624, 4625, 4688
+    #   System   -> 7036
     query = _build_query(event_ids)
+
+    # `EvtQueryReverseDirection` asks Windows for newest records first.
+    # That lets us stop early as soon as we reach a record ID that was already
+    # processed in a previous cycle.
     flags = win32evtlog.EvtQueryChannelPath | win32evtlog.EvtQueryReverseDirection
     query_handle = win32evtlog.EvtQuery(channel, flags, query)
     raw_events = []
 
     try:
         while True:
+            # Read a small batch of event handles from the query result.
+            # Each handle represents one Windows event record.
             handles = win32evtlog.EvtNext(query_handle, 16)
             if not handles:
                 break
 
             for handle in handles:
                 try:
+                    # Render the raw Windows event into XML because XML is much
+                    # easier to parse than the native handle structure.
                     xml_payload = win32evtlog.EvtRender(
                         handle, win32evtlog.EvtRenderEventXml
                     )
                     parsed = _parse_event_xml(channel=channel, xml_payload=xml_payload)
+
+                    # Stop reading as soon as we hit an already-seen record.
+                    # Because we requested newest-first ordering, everything after
+                    # this point will be even older and therefore already processed.
                     if parsed["record_id"] <= last_record_id:
                         return raw_events
+
+                    # Try to resolve the long human-readable event message from
+                    # Windows publisher metadata. If this fails, normalization
+                    # code later falls back to shorter default messages.
                     parsed["message"] = _format_event_message(
                         win32evtlog=win32evtlog,
                         event_handle=handle,
@@ -125,20 +151,26 @@ def _query_channel_events(
                     )
                     raw_events.append(parsed)
                 finally:
+                    # Close the event handle after extracting everything needed
+                    # so the collector does not leak Windows resources.
                     _evt_close(win32evtlog, handle)
     finally:
+        # Close the query handle once the channel scan is finished.
         _evt_close(win32evtlog, query_handle)
 
     return raw_events
 
 
 def _build_query(event_ids: list[int]) -> str:
+    # Windows expects an XPath-like query string for Event Log filtering.
     conditions = " or ".join(f"EventID={event_id}" for event_id in event_ids)
     return f"*[System[{conditions}]]"
 
 
 def _parse_event_xml(*, channel: str, xml_payload: str) -> dict[str, Any]:
-    # The Windows API returns raw XML, so we convert it into a simpler dict first.
+    # The Windows API returns each event as XML.
+    # This function extracts the parts we care about into a plain Python dict:
+    # provider, event ID, record ID, computer name, timestamp, and event data.
     root = ET.fromstring(xml_payload)
     system = root.find("evt:System", XML_NAMESPACE)
     event_data = root.find("evt:EventData", XML_NAMESPACE)
@@ -149,6 +181,9 @@ def _parse_event_xml(*, channel: str, xml_payload: str) -> dict[str, Any]:
     computer = _find_text(system, "evt:Computer")
     timestamp = _find_attr(system, "evt:TimeCreated", "SystemTime")
 
+    # `data_map` stores named EventData fields like `TargetUserName` or `IpAddress`.
+    # `data_values` keeps positional values as a fallback because some System events,
+    # especially service events, may not expose friendly field names consistently.
     data_map = {}
     data_values = []
     if event_data is not None:
@@ -175,7 +210,8 @@ def _parse_event_xml(*, channel: str, xml_payload: str) -> dict[str, Any]:
 def _normalize_windows_event(
     raw_event: dict[str, Any], fallback_host: str
 ) -> Optional[AgentEvent]:
-    # Map known Windows Event IDs to the normalized categories used by the backend.
+    # Convert a generic parsed Windows event into one of the normalized agent
+    # event shapes expected by the backend. Unknown Event IDs are ignored.
     event_id = raw_event["event_id"]
     if event_id == 4625:
         return _normalize_failed_login(raw_event, fallback_host)
@@ -325,8 +361,10 @@ def _normalize_service_change(raw_event: dict[str, Any], fallback_host: str) -> 
 def _format_event_message(
     *, win32evtlog, event_handle, provider_name: Optional[str]
 ) -> str:
-    # Windows can provide a human-readable message for the event if publisher
-    # metadata is available. If not, we fall back to our own shorter message.
+    # Windows can provide a long human-readable message for many events if the
+    # correct publisher metadata is available on the machine.
+    # This is useful for operator visibility, but not strictly required for
+    # normalization because each event also has structured fields in EventData.
     if not provider_name:
         return ""
 
@@ -395,7 +433,12 @@ def _find_attr(parent, path: str, attr_name: str) -> Optional[str]:
 
 
 def _load_state() -> dict[str, int]:
-    # State is intentionally tiny: just the latest record ID per channel.
+    # State is intentionally tiny: just the latest processed record ID per channel.
+    # Example:
+    # {
+    #   "Security": 105432,
+    #   "System": 81221
+    # }
     if not STATE_FILE.exists():
         return {}
     try:
@@ -406,11 +449,14 @@ def _load_state() -> dict[str, int]:
 
 
 def _save_state(state: dict[str, int]) -> None:
+    # Store state on disk so the next agent process continues where the previous
+    # one stopped, even after a restart or machine reboot.
     STATE_FILE.write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 
 def _evt_close(win32evtlog, handle) -> None:
-    # Some pywin32 environments do not expose EvtClose, so close conditionally.
+    # Some pywin32 environments do not expose EvtClose, so close conditionally
+    # instead of failing during cleanup.
     close_fn = getattr(win32evtlog, "EvtClose", None)
     if close_fn is None:
         return

@@ -44,6 +44,52 @@ def _failed_login_payload(offset_seconds: int) -> dict:
     }
 
 
+def _suspicious_process_payload(offset_seconds: int) -> dict:
+    timestamp = (
+        datetime.now(timezone.utc) - timedelta(minutes=4, seconds=offset_seconds)
+    ).isoformat().replace("+00:00", "Z")
+    return {
+        "ts": timestamp,
+        "host": "WIN-LAB-02",
+        "os_type": "windows",
+        "event_type": "process",
+        "event_code": "4688",
+        "category": "process_created",
+        "severity": "HIGH",
+        "username": "pytest-analyst",
+        "ip_address": None,
+        "message": "Process powershell.exe was created",
+        "source": "pytest",
+        "raw_data": {
+            "provider": "Security",
+            "process_name": "powershell.exe",
+            "command_line": "powershell.exe -ExecutionPolicy Bypass",
+        },
+    }
+
+
+def _critical_service_payload() -> dict:
+    timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return {
+        "ts": timestamp,
+        "host": "WIN-OPS-03",
+        "os_type": "windows",
+        "event_type": "system",
+        "event_code": "7036",
+        "category": "service_stopped",
+        "severity": "HIGH",
+        "username": None,
+        "ip_address": None,
+        "message": "Windows Defender service stopped",
+        "source": "pytest",
+        "raw_data": {
+            "provider": "Service Control Manager",
+            "service_name": "Windows Defender",
+            "state": "stopped",
+        },
+    }
+
+
 def test_ingest_events_and_generate_one_alert() -> None:
     # End-to-end test for ingest, storage, listing, and alert generation.
     _reset_database()
@@ -89,3 +135,25 @@ def test_ingest_rejects_invalid_payload() -> None:
         response = client.post("/api/v1/ingest", json=invalid_payload)
 
     assert response.status_code == 422
+
+
+def test_ingest_generates_process_and_service_alerts() -> None:
+    _reset_database()
+
+    with TestClient(app) as client:
+        for offset in range(50, 47, -1):
+            response = client.post(
+                "/api/v1/ingest", json=_suspicious_process_payload(offset)
+            )
+            assert response.status_code == 200
+
+        service_response = client.post("/api/v1/ingest", json=_critical_service_payload())
+        assert service_response.status_code == 200
+
+        alerts_response = client.get("/api/v1/alerts")
+
+    alerts = alerts_response.json()
+    alert_types = {alert["type"] for alert in alerts}
+
+    assert "Suspicious process burst" in alert_types
+    assert "Critical service stopped" in alert_types

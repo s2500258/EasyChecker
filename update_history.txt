@@ -194,3 +194,28 @@ EasyChecker Update History
 49. Added concise English explanatory comments to the backend modules.
 
 50. Added concise English explanatory comments to the frontend modules.
+
+51. Expanded the stub simulation logic so sample/manual data now represents a small fleet of 3 agents on 3 different Windows hosts instead of one repeated host pattern.
+
+52. Reshaped the 30-event simulation into mini incident patterns:
+   - `WIN-PC-01` -> brute-force style authentication activity
+   - `WIN-LAB-02` -> suspicious process creation activity
+   - `WIN-OPS-03` -> service disruption activity
+
+53. Updated `agent/sample_events.py` so fleet sample generation can simulate those host-specific incident patterns.
+
+54. Updated `backend/manual_test.py` so the backend can be fed with 30 simulated events from 3 agents and 3 computers in one run.
+
+55. Added additional backend alert logic to match the simulated fleet scenarios:
+   - `Suspicious process burst`
+   - `Critical service stopped`
+
+56. Extended backend configuration with rule settings for suspicious process thresholds and time windows.
+
+57. Updated backend ingest flow so rule evaluation receives richer event context:
+   - `event_type`
+   - `category`
+   - `severity`
+   - `raw_data`
+
+58. Added backend automated tests for the new alert patterns and confirmed the backend test suite passes with all current rules.

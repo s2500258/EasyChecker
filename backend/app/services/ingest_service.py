@@ -56,6 +56,10 @@ def ingest_event(event: EventIn) -> dict:
     stored_event["raw_data"] = event.raw_data
     generated_alerts = evaluate_event_rules(
         host=event.host,
+        event_type=event.event_type,
+        category=event.category,
+        severity=event.severity,
         message=event.message,
+        raw_data=event.raw_data,
     )
     return {"event": stored_event, "alerts": generated_alerts}
