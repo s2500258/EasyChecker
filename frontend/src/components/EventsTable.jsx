@@ -2,21 +2,41 @@ import StatusBadge from "./StatusBadge";
 import { formatDateTime, shortenText } from "../utils/formatters";
 
 // Tabular view of normalized backend events.
-export default function EventsTable({ events }) {
+export default function EventsTable({ events, sort, onSort }) {
+  function renderSortableHeader(label, key) {
+    const isActive = sort.key === key;
+    const direction = isActive ? sort.direction : "";
+
+    return (
+      <th>
+        <button
+          className={isActive ? "table-sort active" : "table-sort"}
+          onClick={() => onSort(key)}
+          type="button"
+        >
+          {label}
+          <span className="table-sort-indicator">
+            {direction === "asc" ? "▲" : direction === "desc" ? "▼" : "↕"}
+          </span>
+        </button>
+      </th>
+    );
+  }
+
   return (
     <div className="table-shell">
       <table className="data-table">
         <thead>
           <tr>
-            <th>Time</th>
-            <th>Host</th>
-            <th>OS</th>
-            <th>Type</th>
-            <th>Code</th>
-            <th>Category</th>
-            <th>Severity</th>
-            <th>User</th>
-            <th>IP</th>
+            {renderSortableHeader("Time", "ts")}
+            {renderSortableHeader("Host", "host")}
+            {renderSortableHeader("OS", "os_type")}
+            {renderSortableHeader("Type", "event_type")}
+            {renderSortableHeader("Code", "event_code")}
+            {renderSortableHeader("Category", "category")}
+            {renderSortableHeader("Severity", "severity")}
+            {renderSortableHeader("User", "username")}
+            {renderSortableHeader("IP", "ip_address")}
             <th>Message</th>
           </tr>
         </thead>

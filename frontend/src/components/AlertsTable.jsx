@@ -2,17 +2,37 @@ import StatusBadge from "./StatusBadge";
 import { formatDateTime, shortenText } from "../utils/formatters";
 
 // Tabular view of generated backend alerts.
-export default function AlertsTable({ alerts }) {
+export default function AlertsTable({ alerts, sort, onSort }) {
+  function renderSortableHeader(label, key) {
+    const isActive = sort.key === key;
+    const direction = isActive ? sort.direction : "";
+
+    return (
+      <th>
+        <button
+          className={isActive ? "table-sort active" : "table-sort"}
+          onClick={() => onSort(key)}
+          type="button"
+        >
+          {label}
+          <span className="table-sort-indicator">
+            {direction === "asc" ? "▲" : direction === "desc" ? "▼" : "↕"}
+          </span>
+        </button>
+      </th>
+    );
+  }
+
   return (
     <div className="table-shell">
       <table className="data-table">
         <thead>
           <tr>
-            <th>Time</th>
-            <th>Type</th>
-            <th>Severity</th>
-            <th>Host</th>
-            <th>Events</th>
+            {renderSortableHeader("Time", "created_at")}
+            {renderSortableHeader("Type", "type")}
+            {renderSortableHeader("Severity", "severity")}
+            {renderSortableHeader("Host", "host")}
+            {renderSortableHeader("Events", "event_count")}
             <th>Message</th>
           </tr>
         </thead>

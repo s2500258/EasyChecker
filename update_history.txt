@@ -219,3 +219,11 @@ EasyChecker Update History
    - `raw_data`
 
 58. Added backend automated tests for the new alert patterns and confirmed the backend test suite passes with all current rules.
+
+59. Added frontend table sorting for all columns except `Message`.
+
+60. Updated the frontend visual style toward a more serious cyber security / SOC-inspired look.
+
+61. Reduced UI corner rounding and slightly brightened the dark background gradient.
+
+62. Fixed the dashboard page so preview tables still render correctly after sorting support was added.

@@ -15,11 +15,11 @@ export default function Layout({
       <div className="app-backdrop" />
       <header className="hero">
         <div>
-          <p className="eyebrow">Educational SIEM Console</p>
+          <p className="eyebrow">Security Monitoring Console</p>
           <h1>EasyChecker</h1>
           <p className="hero-copy">
-            Track real events from the backend, review generated alerts, and
-            validate that your Windows agent is feeding the pipeline end to end.
+            Review host telemetry, detect suspicious behavior, and monitor
+            alerts from the backend pipeline in one analyst-focused view.
           </p>
         </div>
         <div className="hero-actions">
