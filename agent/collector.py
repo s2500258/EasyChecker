@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Optional
 import xml.etree.ElementTree as ET
 
-from config import get_settings
+from config import get_runtime_dir, get_settings
 from sample_events import build_sample_events
 from schemas import AgentEvent
 
@@ -13,7 +13,9 @@ from schemas import AgentEvent
 # This module chooses the source (sample or Windows), reads raw events,
 # converts them into AgentEvent objects, and keeps lightweight state so the
 # same Windows records are not sent again on the next cycle.
-STATE_FILE = Path(__file__).resolve().parent / ".collector_state.json"
+# Store runtime state next to the executable when packaged, or next to the
+# source files during normal development runs.
+STATE_FILE = get_runtime_dir() / ".collector_state.json"
 WINDOWS_CHANNELS = {
     "Security": [4624, 4625, 4688],
     "System": [7036],

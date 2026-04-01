@@ -3,9 +3,18 @@ from dataclasses import dataclass
 from functools import lru_cache
 import os
 from pathlib import Path
+import sys
 
 
-AGENT_DIR = Path(__file__).resolve().parent
+SOURCE_DIR = Path(__file__).resolve().parent
+
+
+def get_runtime_dir() -> Path:
+    # When the agent is bundled as an executable, use the executable directory
+    # as the runtime base so `.env` and other writable files can live next to it.
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return SOURCE_DIR
 
 
 # Centralized runtime settings for the agent.
@@ -25,7 +34,7 @@ class Settings:
 @lru_cache
 def get_settings() -> Settings:
     # Cache settings so every module in the current process uses the same values.
-    env_values = _load_env_file(AGENT_DIR / ".env")
+    env_values = _load_env_file(get_runtime_dir() / ".env")
     return Settings(
         backend_url=env_values.get(
             "BACKEND_URL", "http://127.0.0.1:8000/api/v1/ingest"
