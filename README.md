@@ -174,6 +174,46 @@ copy .env.example .env
 .\.venv\Scripts\python agent.py
 ```
 
+### 5. Build the Windows agent as an `.exe`
+
+Build the executable on a Windows machine:
+
+```powershell
+cd C:\EasyChecker\agent
+python -m venv .venv
+.\.venv\Scripts\python -m pip install -r requirements.txt
+.\.venv\Scripts\python -m pip install pyinstaller
+.\.venv\Scripts\python -m PyInstaller --onefile --name easychecker-agent agent.py
+```
+
+The built executable will appear in:
+
+```text
+C:\EasyChecker\agent\dist\easychecker-agent.exe
+```
+
+Copy the agent config next to the executable:
+
+```powershell
+copy .env.example .\dist\.env
+```
+
+Then run it:
+
+```powershell
+cd .\dist
+.\easychecker-agent.exe
+```
+
+Notes:
+
+- rebuild the `.exe` after any changes in the `agent/` Python files
+- for live `windows` mode, run the executable as Administrator when access to `Security` events is required
+- the executable reads `.env` from its runtime directory
+- collector state is stored in `collector_state.json`
+- if the executable directory is not writable, the state file falls back to:
+  - `%LOCALAPPDATA%\EasyCheckerAgent\collector_state.json`
+
 For the backend on Windows:
 
 ```powershell

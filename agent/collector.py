@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Optional
 import xml.etree.ElementTree as ET
 
-from config import get_runtime_dir, get_settings
+from config import get_settings, get_state_dir
 from sample_events import build_sample_events
 from schemas import AgentEvent
 
@@ -13,9 +13,8 @@ from schemas import AgentEvent
 # This module chooses the source (sample or Windows), reads raw events,
 # converts them into AgentEvent objects, and keeps lightweight state so the
 # same Windows records are not sent again on the next cycle.
-# Store runtime state next to the executable when packaged, or next to the
-# source files during normal development runs.
-STATE_FILE = get_runtime_dir() / ".collector_state.json"
+# The state file is intentionally visible on Windows so it is easy to confirm
+# that a packaged executable is persisting its progress between runs.
 WINDOWS_CHANNELS = {
     "Security": [4624, 4625, 4688],
     "System": [7036],
@@ -39,6 +38,13 @@ def collect_events() -> list[AgentEvent]:
     raise ValueError(
         f"Unsupported EVENT_SOURCE '{settings.event_source}'. Use 'sample' or 'windows'."
     )
+
+
+def get_state_file_path() -> Path:
+    # Store collector state in a writable directory. In packaged Windows
+    # builds this is usually next to the executable, but it can fall back to
+    # `%LOCALAPPDATA%\\EasyCheckerAgent` if the executable directory is read-only.
+    return get_state_dir() / "collector_state.json"
 
 
 def collect_windows_events() -> list[AgentEvent]:
@@ -441,10 +447,11 @@ def _load_state() -> dict[str, int]:
     #   "Security": 105432,
     #   "System": 81221
     # }
-    if not STATE_FILE.exists():
+    state_file = get_state_file_path()
+    if not state_file.exists():
         return {}
     try:
-        data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+        data = json.loads(state_file.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
     return {str(key): int(value) for key, value in data.items()}
@@ -453,7 +460,8 @@ def _load_state() -> dict[str, int]:
 def _save_state(state: dict[str, int]) -> None:
     # Store state on disk so the next agent process continues where the previous
     # one stopped, even after a restart or machine reboot.
-    STATE_FILE.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    state_file = get_state_file_path()
+    state_file.write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 
 def _evt_close(win32evtlog, handle) -> None:

@@ -218,6 +218,29 @@ EasyChecker Update History
    - `severity`
    - `raw_data`
 
+58. Added frontend table sorting for all key columns except `Message`.
+
+59. Updated the frontend visual style to a more serious cyber security / SOC-like look and later refined it with smaller corner radii and a slightly lighter background gradient.
+
+60. Fixed a frontend dashboard rendering issue caused by sortable table props not being passed on the dashboard page.
+
+61. Improved agent packaging readiness for Windows executable builds by separating:
+   - runtime directory
+   - `.env` file path
+   - collector state file path
+
+62. Reworked collector state persistence for packaged Windows runs:
+   - renamed the state file to visible `collector_state.json`
+   - added startup logging for runtime, env, and state paths
+   - added fallback state storage under `%LOCALAPPDATA%\\EasyCheckerAgent` when the executable directory is not writable
+
+63. Performed packaged Windows `.exe` testing and confirmed that:
+   - the executable can run against the backend
+   - live Windows events can be collected and sent
+   - collector state persistence works through the resolved state file path
+
+64. Documented the Windows `.exe` build flow in the project README.
+
 58. Added backend automated tests for the new alert patterns and confirmed the backend test suite passes with all current rules.
 
 59. Added frontend table sorting for all columns except `Message`.
