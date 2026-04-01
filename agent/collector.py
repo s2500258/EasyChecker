@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Optional
 import xml.etree.ElementTree as ET
 
-from config import get_runtime_dir, get_settings
+from config import get_settings, get_state_dir
 from sample_events import build_sample_events
 from schemas import AgentEvent
 
@@ -41,9 +41,10 @@ def collect_events() -> list[AgentEvent]:
 
 
 def get_state_file_path() -> Path:
-    # Resolve the path dynamically so both source runs and packaged `.exe`
-    # runs use the correct writable runtime directory.
-    return get_runtime_dir() / "collector_state.json"
+    # Store collector state in a writable directory. In packaged Windows
+    # builds this is usually next to the executable, but it can fall back to
+    # `%LOCALAPPDATA%\\EasyCheckerAgent` if the executable directory is read-only.
+    return get_state_dir() / "collector_state.json"
 
 
 def collect_windows_events() -> list[AgentEvent]:

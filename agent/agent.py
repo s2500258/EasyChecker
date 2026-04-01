@@ -1,7 +1,7 @@
 import time
 
 from collector import collect_events, get_state_file_path
-from config import get_runtime_dir, get_settings
+from config import get_env_file_path, get_runtime_dir, get_settings
 from sender import send_event
 
 
@@ -18,6 +18,7 @@ def run_agent() -> None:
     # Print runtime paths explicitly so packaged Windows builds are easier to
     # diagnose when `.env` or state persistence does not behave as expected.
     print(f"Runtime directory: {get_runtime_dir()}")
+    print(f"Env file: {get_env_file_path()}")
     print(f"State file: {get_state_file_path()}")
 
     while True:
