@@ -14,13 +14,20 @@ export default function Layout({
     <div className="app-shell">
       <div className="app-backdrop" />
       <header className="hero">
-        <div>
-          <p className="eyebrow">Security Monitoring Console</p>
-          <h1>EasyChecker</h1>
-          <p className="hero-copy">
-            Review host telemetry, detect suspicious behavior, and monitor
-            alerts from the backend pipeline in one analyst-focused view.
-          </p>
+        <div className="hero-main">
+          <img
+            className="hero-logo"
+            src="/logo1.png"
+            alt="EasyChecker logo"
+          />
+          <div className="hero-copy-block">
+            <p className="eyebrow">Security Monitoring Console</p>
+            <h1>EasyChecker</h1>
+            <p className="hero-copy">
+              Review host telemetry, detect suspicious behavior, and monitor
+              alerts from the backend pipeline in one analyst-focused view.
+            </p>
+          </div>
         </div>
         <div className="hero-actions">
           <button className="refresh-button" onClick={onRefresh} type="button">
