@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Optional
 import xml.etree.ElementTree as ET
 
-from config import get_settings, get_state_dir
+from config import Settings, get_settings, get_state_dir
 from sample_events import build_sample_events
 from schemas import AgentEvent
 
@@ -28,7 +28,8 @@ def collect_events() -> list[AgentEvent]:
     # Sample mode is useful for safe end-to-end testing without depending on Windows logs.
     if settings.event_source == "sample":
         events = build_sample_events(host=settings.hostname, os_type=settings.os_type)
-        return events[: settings.max_events_per_cycle]
+        filtered_events = _filter_events(events, settings)
+        return filtered_events[: settings.max_events_per_cycle]
 
     # Windows mode attempts to read live events from the local machine.
     if settings.event_source == "windows":
@@ -89,7 +90,7 @@ def collect_windows_events() -> list[AgentEvent]:
         for raw_event in sorted(
             raw_events, key=lambda item: (item["timestamp"], item["record_id"])
         ):
-            normalized = _normalize_windows_event(raw_event, settings.hostname)
+            normalized = _normalize_windows_event(raw_event, settings.hostname, settings)
             if normalized is None:
                 continue
             normalized_events.append(normalized)
@@ -216,19 +217,27 @@ def _parse_event_xml(*, channel: str, xml_payload: str) -> dict[str, Any]:
 
 
 def _normalize_windows_event(
-    raw_event: dict[str, Any], fallback_host: str
+    raw_event: dict[str, Any], fallback_host: str, settings: Settings
 ) -> Optional[AgentEvent]:
     # Convert a generic parsed Windows event into one of the normalized agent
     # event shapes expected by the backend. Unknown Event IDs are ignored.
     event_id = raw_event["event_id"]
     if event_id == 4625:
+        if not settings.collect_login_events:
+            return None
         return _normalize_failed_login(raw_event, fallback_host)
     if event_id == 4624:
+        if not settings.collect_login_events:
+            return None
         return _normalize_successful_login(raw_event, fallback_host)
     if event_id == 4688:
-        return _normalize_process_created(raw_event, fallback_host)
+        if not settings.collect_process_events:
+            return None
+        return _normalize_process_created(raw_event, fallback_host, settings)
     if event_id == 7036:
-        return _normalize_service_change(raw_event, fallback_host)
+        if not settings.collect_service_events:
+            return None
+        return _normalize_service_change(raw_event, fallback_host, settings)
     return None
 
 
@@ -293,14 +302,17 @@ def _normalize_successful_login(
 
 
 def _normalize_process_created(
-    raw_event: dict[str, Any], fallback_host: str
-) -> AgentEvent:
+    raw_event: dict[str, Any], fallback_host: str, settings: Settings
+) -> Optional[AgentEvent]:
     # Event ID 4688: process creation.
     data = raw_event["event_data"]
     process_name = _pick_first(data, ["NewProcessName", "ProcessName"]) or "unknown"
     command_line = _pick_first(data, ["CommandLine"])
     parent_process = _pick_first(data, ["ParentProcessName", "CreatorProcessName"])
     username = _pick_first(data, ["SubjectUserName", "TargetUserName"])
+
+    if not _matches_allowlist(process_name, settings.process_name_allowlist):
+        return None
 
     return AgentEvent(
         ts=raw_event["timestamp"],
@@ -325,7 +337,9 @@ def _normalize_process_created(
     )
 
 
-def _normalize_service_change(raw_event: dict[str, Any], fallback_host: str) -> AgentEvent:
+def _normalize_service_change(
+    raw_event: dict[str, Any], fallback_host: str, settings: Settings
+) -> Optional[AgentEvent]:
     # Event ID 7036: service state change, including stopped services.
     service_name = _pick_first(raw_event["event_data"], ["param1", "ServiceName"])
     state = _pick_first(raw_event["event_data"], ["param2", "State"])
@@ -334,6 +348,9 @@ def _normalize_service_change(raw_event: dict[str, Any], fallback_host: str) -> 
         service_name = raw_event["event_values"][0]
     if not state and len(raw_event["event_values"]) > 1:
         state = raw_event["event_values"][1]
+
+    if not _matches_allowlist(service_name, settings.service_name_allowlist):
+        return None
 
     state_normalized = (state or "").strip().lower()
     category = "service_stopped" if state_normalized == "stopped" else "service_state_change"
@@ -364,6 +381,38 @@ def _normalize_service_change(raw_event: dict[str, Any], fallback_host: str) -> 
             "state": state,
         },
     )
+
+
+def _filter_events(events: list[AgentEvent], settings: Settings) -> list[AgentEvent]:
+    # Apply the same config-driven filters to sample events and live Windows
+    # events so testing reflects the real collector behavior.
+    return [event for event in events if _event_is_enabled(event, settings)]
+
+
+def _event_is_enabled(event: AgentEvent, settings: Settings) -> bool:
+    if event.event_type == "authentication" and not settings.collect_login_events:
+        return False
+    if event.event_type == "process":
+        if not settings.collect_process_events:
+            return False
+        process_name = (event.raw_data or {}).get("process_name")
+        return _matches_allowlist(process_name, settings.process_name_allowlist)
+    if event.event_type == "system":
+        if not settings.collect_service_events:
+            return False
+        service_name = (event.raw_data or {}).get("service_name")
+        return _matches_allowlist(service_name, settings.service_name_allowlist)
+    return True
+
+
+def _matches_allowlist(value: Optional[str], allowlist: list[str]) -> bool:
+    # Empty allowlists mean "do not filter". Otherwise use a simple
+    # case-insensitive exact match against the normalized item name.
+    if not allowlist:
+        return True
+    if not value:
+        return False
+    return value.strip().lower() in allowlist
 
 
 def _format_event_message(

@@ -241,6 +241,21 @@ EasyChecker Update History
 
 64. Documented the Windows `.exe` build flow in the project README.
 
+65. Added a simplified configuration-driven collection layer for the agent with runtime toggles for:
+   - login events
+   - process events
+   - service events
+
+66. Added optional allowlist filtering for:
+   - process names
+   - service names
+
+67. Updated the agent collector so the same configuration filters apply consistently to:
+   - sample-mode events
+   - live Windows events
+
+68. Updated `agent/.env.example` and `README.md` to document the new collection controls and allowlist behavior.
+
 58. Added backend automated tests for the new alert patterns and confirmed the backend test suite passes with all current rules.
 
 59. Added frontend table sorting for all columns except `Message`.

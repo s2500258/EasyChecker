@@ -234,6 +234,9 @@ Set `agent/.env` to:
 EVENT_SOURCE=sample
 RUN_ONCE=true
 MAX_EVENTS_PER_CYCLE=5
+COLLECT_LOGIN_EVENTS=true
+COLLECT_PROCESS_EVENTS=true
+COLLECT_SERVICE_EVENTS=true
 ```
 
 Run:
@@ -263,6 +266,9 @@ Set `agent/.env` to:
 EVENT_SOURCE=windows
 RUN_ONCE=true
 MAX_EVENTS_PER_CYCLE=5
+COLLECT_LOGIN_EVENTS=true
+COLLECT_PROCESS_EVENTS=true
+COLLECT_SERVICE_EVENTS=true
 ```
 
 Then run the agent again.
@@ -286,6 +292,36 @@ Example command:
 ```powershell
 auditpol /set /subcategory:"Process Creation" /success:enable /failure:enable
 ```
+
+### Agent Collection Customization
+
+The agent now supports a small set of high-value collection controls through
+`agent/.env`:
+
+```env
+COLLECT_LOGIN_EVENTS=true
+COLLECT_PROCESS_EVENTS=true
+COLLECT_SERVICE_EVENTS=true
+PROCESS_NAME_ALLOWLIST=
+SERVICE_NAME_ALLOWLIST=
+```
+
+How they work:
+
+- `COLLECT_LOGIN_EVENTS=false` disables `login_failure` and `login_success`
+- `COLLECT_PROCESS_EVENTS=false` disables `process_created`
+- `COLLECT_SERVICE_EVENTS=false` disables `service_state_change` and `service_stopped`
+- `PROCESS_NAME_ALLOWLIST` keeps only matching process events, for exact process names such as:
+  - `powershell.exe,cmd.exe,wmic.exe`
+- `SERVICE_NAME_ALLOWLIST` keeps only matching service events, for exact service names such as:
+  - `WinDefend,wscsvc,wuauserv`
+
+Notes:
+
+- empty allowlists mean "do not filter"
+- allowlist matching is case-insensitive
+- if `PROCESS_NAME_ALLOWLIST=powershell.exe`, then `powershell.exe` is allowed and `notepad.exe` is filtered out
+- the same filters are applied to both sample-mode events and live Windows events
 
 ## Backend API
 

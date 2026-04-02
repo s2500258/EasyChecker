@@ -67,13 +67,26 @@ button {
   display: flex;
   justify-content: space-between;
   gap: 24px;
-  align-items: flex-start;
+  align-items: stretch;
   margin-bottom: 24px;
   padding: 28px;
   border-radius: 6px;
   background: linear-gradient(180deg, rgba(13, 24, 30, 0.94), rgba(10, 19, 25, 0.9));
   border: 1px solid rgba(71, 119, 130, 0.24);
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.34);
+}
+
+.hero-main {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 24px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.hero-copy-block {
+  min-width: 0;
 }
 
 .eyebrow {
@@ -100,6 +113,16 @@ button {
   max-width: 60ch;
   margin: 14px 0 0;
   color: #8da8ae;
+}
+
+.hero-logo {
+  height: 124px;
+  width: auto;
+  flex: 0 0 auto;
+  object-fit: contain;
+  filter:
+    drop-shadow(0 0 20px rgba(42, 239, 174, 0.22))
+    drop-shadow(0 0 40px rgba(42, 239, 174, 0.12));
 }
 
 .hero-actions {
@@ -132,6 +155,8 @@ button {
 
 .timestamp {
   margin: 0;
+  width: 100%;
+  text-align: right;
   font-size: 0.92rem;
   color: #7f98a0;
 }
@@ -377,6 +402,14 @@ button {
     align-items: flex-start;
   }
 
+  .hero-main {
+    width: 100%;
+  }
+
+  .hero-logo {
+    height: 112px;
+  }
+
   .hero-actions {
     align-items: flex-start;
   }
@@ -392,6 +425,15 @@ button {
   .state-panel,
   .metric-card {
     border-radius: 4px;
+  }
+
+  .hero-main {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hero-logo {
+    height: 92px;
   }
 
   .metrics-grid,
