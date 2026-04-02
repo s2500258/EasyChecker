@@ -311,15 +311,16 @@ How they work:
 - `COLLECT_LOGIN_EVENTS=false` disables `login_failure` and `login_success`
 - `COLLECT_PROCESS_EVENTS=false` disables `process_created`
 - `COLLECT_SERVICE_EVENTS=false` disables `service_state_change` and `service_stopped`
-- `PROCESS_NAME_ALLOWLIST` limits process events to exact process names such as:
+- `PROCESS_NAME_ALLOWLIST` keeps only matching process events, for exact process names such as:
   - `powershell.exe,cmd.exe,wmic.exe`
-- `SERVICE_NAME_ALLOWLIST` limits service events to exact service names such as:
+- `SERVICE_NAME_ALLOWLIST` keeps only matching service events, for exact service names such as:
   - `WinDefend,wscsvc,wuauserv`
 
 Notes:
 
 - empty allowlists mean "do not filter"
 - allowlist matching is case-insensitive
+- if `PROCESS_NAME_ALLOWLIST=powershell.exe`, then `powershell.exe` is allowed and `notepad.exe` is filtered out
 - the same filters are applied to both sample-mode events and live Windows events
 
 ## Backend API
