@@ -53,6 +53,11 @@ class Settings:
     event_source: str
     max_events_per_cycle: int
     run_once: bool
+    collect_login_events: bool
+    collect_process_events: bool
+    collect_service_events: bool
+    process_name_allowlist: list[str]
+    service_name_allowlist: list[str]
 
 
 @lru_cache
@@ -69,6 +74,21 @@ def get_settings() -> Settings:
         event_source=env_values.get("EVENT_SOURCE", "sample"),
         max_events_per_cycle=int(env_values.get("MAX_EVENTS_PER_CYCLE", "3")),
         run_once=_parse_bool(env_values.get("RUN_ONCE", "false")),
+        collect_login_events=_parse_bool(
+            env_values.get("COLLECT_LOGIN_EVENTS", "true")
+        ),
+        collect_process_events=_parse_bool(
+            env_values.get("COLLECT_PROCESS_EVENTS", "true")
+        ),
+        collect_service_events=_parse_bool(
+            env_values.get("COLLECT_SERVICE_EVENTS", "true")
+        ),
+        process_name_allowlist=_parse_csv(
+            env_values.get("PROCESS_NAME_ALLOWLIST", "")
+        ),
+        service_name_allowlist=_parse_csv(
+            env_values.get("SERVICE_NAME_ALLOWLIST", "")
+        ),
     )
 
 
@@ -90,6 +110,16 @@ def _load_env_file(path: Path) -> dict[str, str]:
 
 def _parse_bool(value: str) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _parse_csv(value: str) -> list[str]:
+    # Parse comma-separated names from `.env` and normalize them so collector
+    # filtering can do simple case-insensitive comparisons.
+    return [
+        item.strip().lower()
+        for item in value.split(",")
+        if item.strip()
+    ]
 
 
 def _is_writable_dir(path: Path) -> bool:
