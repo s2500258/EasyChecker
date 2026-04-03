@@ -1,3 +1,5 @@
+import { useMemo, useState } from "react";
+
 import AlertsTable from "../components/AlertsTable";
 import EventsTable from "../components/EventsTable";
 import MetricCard from "../components/MetricCard";
@@ -20,9 +22,39 @@ export default function DashboardPage({
   error,
   t,
 }) {
+  const [eventSort, setEventSort] = useState(DEFAULT_EVENT_SORT);
+  const [alertSort, setAlertSort] = useState(DEFAULT_ALERT_SORT);
   const highAlerts = alerts.filter((alert) => alert.severity === "HIGH").length;
-  const latestEvents = events.slice(0, 5);
-  const latestAlerts = alerts.slice(0, 5);
+  const latestEvents = useMemo(() => {
+    return [...events]
+      .sort((left, right) =>
+        compareValues(left[eventSort.key], right[eventSort.key], eventSort.direction),
+      )
+      .slice(0, 5);
+  }, [events, eventSort]);
+  const latestAlerts = useMemo(() => {
+    return [...alerts]
+      .sort((left, right) =>
+        compareValues(left[alertSort.key], right[alertSort.key], alertSort.direction),
+      )
+      .slice(0, 5);
+  }, [alerts, alertSort]);
+
+  function updateEventSort(key) {
+    setEventSort((current) => ({
+      key,
+      direction:
+        current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
+  }
+
+  function updateAlertSort(key) {
+    setAlertSort((current) => ({
+      key,
+      direction:
+        current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
+  }
 
   if (loading) {
     return <section className="state-panel">{t("loadingDashboard")}</section>;
@@ -53,8 +85,8 @@ export default function DashboardPage({
         {latestEvents.length ? (
           <EventsTable
             events={latestEvents}
-            sort={DEFAULT_EVENT_SORT}
-            onSort={() => {}}
+            sort={eventSort}
+            onSort={updateEventSort}
             t={t}
           />
         ) : (
@@ -70,8 +102,8 @@ export default function DashboardPage({
         {latestAlerts.length ? (
           <AlertsTable
             alerts={latestAlerts}
-            sort={DEFAULT_ALERT_SORT}
-            onSort={() => {}}
+            sort={alertSort}
+            onSort={updateAlertSort}
             t={t}
           />
         ) : (
@@ -80,4 +112,34 @@ export default function DashboardPage({
       </section>
     </div>
   );
+}
+
+function compareValues(left, right, direction) {
+  const normalizedLeft = normalizeValue(left);
+  const normalizedRight = normalizeValue(right);
+
+  if (normalizedLeft < normalizedRight) {
+    return direction === "asc" ? -1 : 1;
+  }
+  if (normalizedLeft > normalizedRight) {
+    return direction === "asc" ? 1 : -1;
+  }
+  return 0;
+}
+
+function normalizeValue(value) {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+
+  if (typeof value === "number") {
+    return value;
+  }
+
+  const date = new Date(value);
+  if (!Number.isNaN(date.getTime()) && typeof value === "string") {
+    return date.getTime();
+  }
+
+  return String(value).toLowerCase();
 }
