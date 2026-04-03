@@ -290,3 +290,32 @@ EasyChecker Update History
    - loading and empty states
 
 73. Updated the hero description text in both English and Finnish to the newer shorter wording.
+
+74. Added frontend pagination to the `Events` and `Alerts` pages with:
+   - default page size of 20
+   - page size options 20 / 50 / 100 / all
+   - previous / next navigation
+   - localized pagination labels
+
+75. Added an `About EasyChecker` page in the frontend and linked it from the bottom of the Dashboard page.
+
+76. Added bilingual service description content to the `About EasyChecker` page, including:
+   - author and educational project background
+   - a broader explanation of the service functionality
+
+77. Added backend host aggregation through `GET /api/v1/hosts` without introducing a new database table.
+
+78. Added a frontend `Hosts` page with:
+   - navigation tab
+   - host summary table
+   - sorting
+   - host / severity / OS filters
+   - pagination
+
+79. Added a host activity indicator with two states:
+   - `ONLINE`
+   - `OFFLINE`
+
+80. Displayed the host activity indicator on the `Hosts` page as a small LED-style dot:
+   - green for online
+   - red for offline

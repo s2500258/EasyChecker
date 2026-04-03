@@ -157,3 +157,39 @@ def test_ingest_generates_process_and_service_alerts() -> None:
 
     assert "Suspicious process burst" in alert_types
     assert "Critical service stopped" in alert_types
+
+
+def test_hosts_endpoint_returns_aggregated_host_summaries() -> None:
+    _reset_database()
+
+    with TestClient(app) as client:
+        for offset in range(50, 45, -1):
+            response = client.post("/api/v1/ingest", json=_failed_login_payload(offset))
+            assert response.status_code == 200
+
+        for offset in range(50, 47, -1):
+            response = client.post(
+                "/api/v1/ingest", json=_suspicious_process_payload(offset)
+            )
+            assert response.status_code == 200
+
+        response = client.post("/api/v1/ingest", json=_critical_service_payload())
+        assert response.status_code == 200
+
+        hosts_response = client.get("/api/v1/hosts")
+
+    hosts = hosts_response.json()
+    by_host = {host["host"]: host for host in hosts}
+
+    assert hosts_response.status_code == 200
+    assert {"WIN-PC-01", "WIN-LAB-02", "WIN-OPS-03"}.issubset(by_host.keys())
+    assert by_host["WIN-PC-01"]["total_events"] == 5
+    assert by_host["WIN-PC-01"]["total_alerts"] == 1
+    assert by_host["WIN-PC-01"]["highest_severity"] == "MEDIUM"
+    assert by_host["WIN-PC-01"]["last_event_type"] == "authentication"
+    assert by_host["WIN-LAB-02"]["total_events"] == 3
+    assert by_host["WIN-LAB-02"]["total_alerts"] == 1
+    assert by_host["WIN-LAB-02"]["highest_severity"] == "HIGH"
+    assert by_host["WIN-OPS-03"]["total_events"] == 1
+    assert by_host["WIN-OPS-03"]["total_alerts"] == 1
+    assert by_host["WIN-OPS-03"]["highest_severity"] == "HIGH"

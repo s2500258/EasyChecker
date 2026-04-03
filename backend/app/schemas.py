@@ -40,6 +40,18 @@ class AlertOut(BaseModel):
     event_count: int
 
 
+# Aggregated host-level summary for the Hosts page.
+class HostOut(BaseModel):
+    host: str
+    os_type: Optional[str] = None
+    last_seen: Optional[str] = None
+    activity_status: str
+    total_events: int
+    total_alerts: int
+    highest_severity: Optional[str] = None
+    last_event_type: Optional[str] = None
+
+
 # Combined response returned by the ingest endpoint.
 class IngestResponse(BaseModel):
     event: EventOut

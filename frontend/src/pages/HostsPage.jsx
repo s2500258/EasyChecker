@@ -1,69 +1,65 @@
 import { useMemo, useState } from "react";
 
-import EventsTable from "../components/EventsTable";
-import FilterBar from "../components/FilterBar";
+import HostsTable from "../components/HostsTable";
 import { sortUniqueValues } from "../utils/formatters";
 
-// Full events page with lightweight client-side filtering.
-export default function EventsPage({ events, loading, error, t }) {
+// Aggregated host overview page built from the backend /hosts endpoint.
+export default function HostsPage({ hosts, loading, error, t }) {
   const PAGE_SIZE_OPTIONS = ["20", "50", "100", "all"];
   const [filters, setFilters] = useState({
     host: "",
     severity: "",
-    category: "",
+    os: "",
   });
   const [pageSize, setPageSize] = useState("20");
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState({
-    key: "ts",
+    key: "last_seen",
     direction: "desc",
   });
 
   const options = useMemo(
     () => ({
-      severities: sortUniqueValues(events.map((event) => event.severity)),
-      categories: sortUniqueValues(events.map((event) => event.category)),
+      severities: sortUniqueValues(hosts.map((host) => host.highest_severity)),
+      osTypes: sortUniqueValues(hosts.map((host) => host.os_type)),
     }),
-    [events],
+    [hosts],
   );
 
-  const filteredEvents = useMemo(() => {
-    // Filtering stays client-side for the MVP while the dataset remains small.
-    const matchingEvents = events.filter((event) => {
+  const filteredHosts = useMemo(() => {
+    const matchingHosts = hosts.filter((host) => {
       const matchesHost = filters.host
-        ? event.host?.toLowerCase().includes(filters.host.toLowerCase())
+        ? host.host?.toLowerCase().includes(filters.host.toLowerCase())
         : true;
       const matchesSeverity = filters.severity
-        ? event.severity === filters.severity
+        ? host.highest_severity === filters.severity
         : true;
-      const matchesCategory = filters.category
-        ? event.category === filters.category
-        : true;
-      return matchesHost && matchesSeverity && matchesCategory;
+      const matchesOs = filters.os ? host.os_type === filters.os : true;
+      return matchesHost && matchesSeverity && matchesOs;
     });
 
-    return [...matchingEvents].sort((left, right) =>
+    return [...matchingHosts].sort((left, right) =>
       compareValues(left[sort.key], right[sort.key], sort.direction),
     );
-  }, [events, filters, sort]);
+  }, [hosts, filters, sort]);
 
   const resolvedPageSize =
-    pageSize === "all" ? filteredEvents.length || 1 : Number(pageSize);
+    pageSize === "all" ? filteredHosts.length || 1 : Number(pageSize);
   const totalPages =
-    pageSize === "all" ? 1 : Math.max(1, Math.ceil(filteredEvents.length / resolvedPageSize));
+    pageSize === "all" ? 1 : Math.max(1, Math.ceil(filteredHosts.length / resolvedPageSize));
   const currentPage = Math.min(page, totalPages);
-  const pagedEvents = useMemo(() => {
+  const pagedHosts = useMemo(() => {
     if (pageSize === "all") {
-      return filteredEvents;
+      return filteredHosts;
     }
     const start = (currentPage - 1) * resolvedPageSize;
-    return filteredEvents.slice(start, start + resolvedPageSize);
-  }, [filteredEvents, pageSize, currentPage, resolvedPageSize]);
-  const rangeStart = filteredEvents.length ? (currentPage - 1) * resolvedPageSize + 1 : 0;
+    return filteredHosts.slice(start, start + resolvedPageSize);
+  }, [filteredHosts, pageSize, currentPage, resolvedPageSize]);
+  const rangeStart = filteredHosts.length ? (currentPage - 1) * resolvedPageSize + 1 : 0;
   const rangeEnd =
     pageSize === "all"
-      ? filteredEvents.length
-      : Math.min(currentPage * resolvedPageSize, filteredEvents.length);
+      ? filteredHosts.length
+      : Math.min(currentPage * resolvedPageSize, filteredHosts.length);
 
   function updateFilter(key, value) {
     setPage(1);
@@ -87,24 +83,55 @@ export default function EventsPage({ events, loading, error, t }) {
   return (
     <section className="panel">
       <div className="panel-header">
-        <h2>{t("eventsTitle")}</h2>
-        <p>{t("eventsCopy")}</p>
+        <h2>{t("hostsTitle")}</h2>
+        <p>{t("hostsCopy")}</p>
       </div>
 
-      <FilterBar
-        filters={filters}
-        onChange={updateFilter}
-        options={options}
-        showCategory
-        t={t}
-      />
+      <section className="filter-bar hosts-filter-bar">
+        <label>
+          {t("filterHost")}
+          <input
+            type="text"
+            value={filters.host}
+            onChange={(event) => updateFilter("host", event.target.value)}
+            placeholder={t("filterHostPlaceholder")}
+          />
+        </label>
 
-      {loading ? <div className="state-panel">{t("loadingEvents")}</div> : null}
+        <label>
+          {t("filterSeverity")}
+          <select
+            value={filters.severity}
+            onChange={(event) => updateFilter("severity", event.target.value)}
+          >
+            <option value="">{t("filterAll")}</option>
+            {options.severities.map((severity) => (
+              <option key={severity} value={severity}>
+                {severity}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          {t("hostsFilterOs")}
+          <select value={filters.os} onChange={(event) => updateFilter("os", event.target.value)}>
+            <option value="">{t("filterAll")}</option>
+            {options.osTypes.map((osType) => (
+              <option key={osType} value={osType}>
+                {osType}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
+
+      {loading ? <div className="state-panel">{t("hostsLoading")}</div> : null}
       {error ? <div className="state-panel error">{error}</div> : null}
-      {!loading && !error && !filteredEvents.length ? (
-        <div className="state-panel">{t("noFilteredEvents")}</div>
+      {!loading && !error && !filteredHosts.length ? (
+        <div className="state-panel">{t("hostsEmpty")}</div>
       ) : null}
-      {!loading && !error && filteredEvents.length ? (
+      {!loading && !error && filteredHosts.length ? (
         <>
           <div className="pagination-bar">
             <label className="page-size-control">
@@ -124,12 +151,12 @@ export default function EventsPage({ events, loading, error, t }) {
               {formatMessage(t("pageSummary"), {
                 from: rangeStart,
                 to: rangeEnd,
-                total: filteredEvents.length,
+                total: filteredHosts.length,
               })}
             </p>
           </div>
 
-          <EventsTable events={pagedEvents} sort={sort} onSort={updateSort} t={t} />
+          <HostsTable hosts={pagedHosts} sort={sort} onSort={updateSort} t={t} />
 
           <div className="pagination-footer">
             <p className="pagination-summary">
@@ -179,6 +206,10 @@ function compareValues(left, right, direction) {
 function normalizeValue(value) {
   if (value === null || value === undefined || value === "") {
     return "";
+  }
+
+  if (typeof value === "number") {
+    return value;
   }
 
   const date = new Date(value);

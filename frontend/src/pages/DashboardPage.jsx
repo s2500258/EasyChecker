@@ -21,6 +21,7 @@ export default function DashboardPage({
   loading,
   error,
   t,
+  onOpenAbout,
 }) {
   const [eventSort, setEventSort] = useState(DEFAULT_EVENT_SORT);
   const [alertSort, setAlertSort] = useState(DEFAULT_ALERT_SORT);
@@ -110,6 +111,12 @@ export default function DashboardPage({
           <div className="state-panel">{t("noAlertsYet")}</div>
         )}
       </section>
+
+      <div className="dashboard-footer-link">
+        <button className="about-link" onClick={onOpenAbout} type="button">
+          {t("aboutLink")}
+        </button>
+      </div>
     </div>
   );
 }

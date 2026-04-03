@@ -8,6 +8,7 @@ from .config import get_settings
 from .models import init_db
 from .routes.alerts import router as alerts_router
 from .routes.events import router as events_router
+from .routes.hosts import router as hosts_router
 from .routes.ingest import router as ingest_router
 
 
@@ -48,3 +49,4 @@ def custom_swagger_ui_html():
 app.include_router(ingest_router, prefix=settings.api_v1_prefix)
 app.include_router(events_router, prefix=settings.api_v1_prefix)
 app.include_router(alerts_router, prefix=settings.api_v1_prefix)
+app.include_router(hosts_router, prefix=settings.api_v1_prefix)

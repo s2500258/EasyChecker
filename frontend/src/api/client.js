@@ -16,3 +16,7 @@ export function fetchEvents() {
 export function fetchAlerts() {
   return request("/alerts");
 }
+
+export function fetchHosts() {
+  return request("/hosts");
+}
