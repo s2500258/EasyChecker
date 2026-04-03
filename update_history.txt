@@ -265,3 +265,28 @@ EasyChecker Update History
 61. Reduced UI corner rounding and slightly brightened the dark background gradient.
 
 62. Fixed the dashboard page so preview tables still render correctly after sorting support was added.
+
+69. Added the shared `logo1.png` branding asset to the frontend hero header and reused it as the favicon for:
+   - frontend
+   - backend
+   - backend Swagger UI
+
+70. Adjusted the hero header layout so the logo appears to the left of the `EasyChecker` title and tuned its glow styling for the SOC-like interface.
+
+71. Added lightweight bilingual frontend localization with:
+   - English UI copy
+   - Finnish UI copy
+   - a header language switcher
+   - language persistence through `localStorage`
+
+72. Localized key frontend interface areas, including:
+   - navigation labels
+   - hero text
+   - refresh controls
+   - dashboard labels
+   - events and alerts page headings
+   - filter labels
+   - table headers
+   - loading and empty states
+
+73. Updated the hero description text in both English and Finnish to the newer shorter wording.
