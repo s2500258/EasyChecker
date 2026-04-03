@@ -5,7 +5,7 @@ import FilterBar from "../components/FilterBar";
 import { sortUniqueValues } from "../utils/formatters";
 
 // Full alerts page with simple host and severity filters.
-export default function AlertsPage({ alerts, loading, error }) {
+export default function AlertsPage({ alerts, loading, error, t }) {
   const [filters, setFilters] = useState({
     host: "",
     severity: "",
@@ -55,19 +55,19 @@ export default function AlertsPage({ alerts, loading, error }) {
   return (
     <section className="panel">
       <div className="panel-header">
-        <h2>Alerts</h2>
-        <p>Inspect generated alerts and spot the highest severity activity.</p>
+        <h2>{t("alertsTitle")}</h2>
+        <p>{t("alertsCopy")}</p>
       </div>
 
-      <FilterBar filters={filters} onChange={updateFilter} options={options} />
+      <FilterBar filters={filters} onChange={updateFilter} options={options} t={t} />
 
-      {loading ? <div className="state-panel">Loading alerts...</div> : null}
+      {loading ? <div className="state-panel">{t("loadingAlerts")}</div> : null}
       {error ? <div className="state-panel error">{error}</div> : null}
       {!loading && !error && !filteredAlerts.length ? (
-        <div className="state-panel">No alerts match the current filters.</div>
+        <div className="state-panel">{t("noFilteredAlerts")}</div>
       ) : null}
       {!loading && !error && filteredAlerts.length ? (
-        <AlertsTable alerts={filteredAlerts} sort={sort} onSort={updateSort} />
+        <AlertsTable alerts={filteredAlerts} sort={sort} onSort={updateSort} t={t} />
       ) : null}
     </section>
   );

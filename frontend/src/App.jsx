@@ -2,25 +2,30 @@ import { useEffect, useState } from "react";
 
 import { fetchAlerts, fetchEvents } from "./api/client";
 import Layout from "./components/Layout";
+import { messages } from "./i18n/messages";
 import AlertsPage from "./pages/AlertsPage";
 import DashboardPage from "./pages/DashboardPage";
 import EventsPage from "./pages/EventsPage";
 
-const NAV_ITEMS = [
-  { key: "dashboard", label: "Dashboard" },
-  { key: "events", label: "Events" },
-  { key: "alerts", label: "Alerts" },
-];
-
 // Top-level frontend coordinator for data loading and simple page navigation.
 export default function App() {
   const [activePage, setActivePage] = useState("dashboard");
+  const [language, setLanguage] = useState(() => {
+    return window.localStorage.getItem("easychecker-language") || "en";
+  });
   const [events, setEvents] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [lastUpdated, setLastUpdated] = useState("");
+
+  const t = (key) => messages[language]?.[key] || messages.en[key] || key;
+  const navItems = [
+    { key: "dashboard", label: t("navDashboard") },
+    { key: "events", label: t("navEvents") },
+    { key: "alerts", label: t("navAlerts") },
+  ];
 
   async function loadData({ silent = false } = {}) {
     if (silent) {
@@ -40,7 +45,7 @@ export default function App() {
       setError("");
       setLastUpdated(new Date().toISOString());
     } catch (loadError) {
-      setError(loadError.message || "Could not load data.");
+      setError(loadError.message || t("loadError"));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -51,6 +56,10 @@ export default function App() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    window.localStorage.setItem("easychecker-language", language);
+  }, [language]);
+
   const pageProps = {
     events,
     alerts,
@@ -59,6 +68,7 @@ export default function App() {
     onRefresh: () => loadData({ silent: true }),
     refreshing,
     lastUpdated,
+    t,
   };
 
   // Keep routing simple for the MVP by switching pages from local state.
@@ -71,13 +81,16 @@ export default function App() {
   }
 
   return (
-    <Layout
+      <Layout
       activePage={activePage}
-      navItems={NAV_ITEMS}
+      navItems={navItems}
       onNavigate={setActivePage}
       onRefresh={() => loadData({ silent: true })}
       refreshing={refreshing}
       lastUpdated={lastUpdated}
+      language={language}
+      onLanguageChange={setLanguage}
+      t={t}
     >
       {content}
     </Layout>

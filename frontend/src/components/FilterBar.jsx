@@ -1,24 +1,30 @@
 // Reusable host/severity/category filters for table pages.
-export default function FilterBar({ filters, onChange, options, showCategory = false }) {
+export default function FilterBar({
+  filters,
+  onChange,
+  options,
+  showCategory = false,
+  t,
+}) {
   return (
     <section className="filter-bar">
       <label>
-        Host
+        {t("filterHost")}
         <input
           type="text"
           value={filters.host}
           onChange={(event) => onChange("host", event.target.value)}
-          placeholder="Filter by host"
+          placeholder={t("filterHostPlaceholder")}
         />
       </label>
 
       <label>
-        Severity
+        {t("filterSeverity")}
         <select
           value={filters.severity}
           onChange={(event) => onChange("severity", event.target.value)}
         >
-          <option value="">All</option>
+          <option value="">{t("filterAll")}</option>
           {options.severities.map((severity) => (
             <option key={severity} value={severity}>
               {severity}
@@ -29,12 +35,12 @@ export default function FilterBar({ filters, onChange, options, showCategory = f
 
       {showCategory ? (
         <label>
-          Category
+          {t("filterCategory")}
           <select
             value={filters.category}
             onChange={(event) => onChange("category", event.target.value)}
           >
-            <option value="">All</option>
+            <option value="">{t("filterAll")}</option>
             {options.categories.map((category) => (
               <option key={category} value={category}>
                 {category}

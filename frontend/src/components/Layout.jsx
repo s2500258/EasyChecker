@@ -8,6 +8,9 @@ export default function Layout({
   onRefresh,
   refreshing,
   lastUpdated,
+  language,
+  onLanguageChange,
+  t,
   children,
 }) {
   return (
@@ -21,20 +24,33 @@ export default function Layout({
             alt="EasyChecker logo"
           />
           <div className="hero-copy-block">
-            <p className="eyebrow">Security Monitoring Console</p>
+            <p className="eyebrow">{t("heroEyebrow")}</p>
             <h1>EasyChecker</h1>
-            <p className="hero-copy">
-              Review host telemetry, detect suspicious behavior, and monitor
-              alerts from the backend pipeline in one analyst-focused view.
-            </p>
+            <p className="hero-copy">{t("heroCopy")}</p>
           </div>
         </div>
         <div className="hero-actions">
+          <div className="language-switcher" aria-label={t("language")}>
+            <button
+              className={language === "en" ? "lang-button active" : "lang-button"}
+              onClick={() => onLanguageChange("en")}
+              type="button"
+            >
+              EN
+            </button>
+            <button
+              className={language === "fi" ? "lang-button active" : "lang-button"}
+              onClick={() => onLanguageChange("fi")}
+              type="button"
+            >
+              FI
+            </button>
+          </div>
           <button className="refresh-button" onClick={onRefresh} type="button">
-            {refreshing ? "Refreshing..." : "Refresh Data"}
+            {refreshing ? t("refreshing") : t("refresh")}
           </button>
           <p className="timestamp">
-            Last updated: {lastUpdated ? formatDateTime(lastUpdated) : "Not yet"}
+            {t("lastUpdated")}: {lastUpdated ? formatDateTime(lastUpdated) : t("notYet")}
           </p>
         </div>
       </header>

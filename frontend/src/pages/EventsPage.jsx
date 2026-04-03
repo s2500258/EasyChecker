@@ -5,7 +5,7 @@ import FilterBar from "../components/FilterBar";
 import { sortUniqueValues } from "../utils/formatters";
 
 // Full events page with lightweight client-side filtering.
-export default function EventsPage({ events, loading, error }) {
+export default function EventsPage({ events, loading, error, t }) {
   const [filters, setFilters] = useState({
     host: "",
     severity: "",
@@ -59,8 +59,8 @@ export default function EventsPage({ events, loading, error }) {
   return (
     <section className="panel">
       <div className="panel-header">
-        <h2>Events</h2>
-        <p>Review normalized telemetry coming from the backend.</p>
+        <h2>{t("eventsTitle")}</h2>
+        <p>{t("eventsCopy")}</p>
       </div>
 
       <FilterBar
@@ -68,15 +68,16 @@ export default function EventsPage({ events, loading, error }) {
         onChange={updateFilter}
         options={options}
         showCategory
+        t={t}
       />
 
-      {loading ? <div className="state-panel">Loading events...</div> : null}
+      {loading ? <div className="state-panel">{t("loadingEvents")}</div> : null}
       {error ? <div className="state-panel error">{error}</div> : null}
       {!loading && !error && !filteredEvents.length ? (
-        <div className="state-panel">No events match the current filters.</div>
+        <div className="state-panel">{t("noFilteredEvents")}</div>
       ) : null}
       {!loading && !error && filteredEvents.length ? (
-        <EventsTable events={filteredEvents} sort={sort} onSort={updateSort} />
+        <EventsTable events={filteredEvents} sort={sort} onSort={updateSort} t={t} />
       ) : null}
     </section>
   );

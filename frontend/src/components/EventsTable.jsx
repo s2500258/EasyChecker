@@ -2,7 +2,7 @@ import StatusBadge from "./StatusBadge";
 import { formatDateTime, shortenText } from "../utils/formatters";
 
 // Tabular view of normalized backend events.
-export default function EventsTable({ events, sort, onSort }) {
+export default function EventsTable({ events, sort, onSort, t }) {
   function renderSortableHeader(label, key) {
     const isActive = sort.key === key;
     const direction = isActive ? sort.direction : "";
@@ -28,32 +28,32 @@ export default function EventsTable({ events, sort, onSort }) {
       <table className="data-table">
         <thead>
           <tr>
-            {renderSortableHeader("Time", "ts")}
-            {renderSortableHeader("Host", "host")}
-            {renderSortableHeader("OS", "os_type")}
-            {renderSortableHeader("Type", "event_type")}
-            {renderSortableHeader("Code", "event_code")}
-            {renderSortableHeader("Category", "category")}
-            {renderSortableHeader("Severity", "severity")}
-            {renderSortableHeader("User", "username")}
-            {renderSortableHeader("IP", "ip_address")}
-            <th>Message</th>
+            {renderSortableHeader(t("tableTime"), "ts")}
+            {renderSortableHeader(t("tableHost"), "host")}
+            {renderSortableHeader(t("tableOS"), "os_type")}
+            {renderSortableHeader(t("tableType"), "event_type")}
+            {renderSortableHeader(t("tableCode"), "event_code")}
+            {renderSortableHeader(t("tableCategory"), "category")}
+            {renderSortableHeader(t("tableSeverity"), "severity")}
+            {renderSortableHeader(t("tableUser"), "username")}
+            {renderSortableHeader(t("tableIP"), "ip_address")}
+            <th>{t("tableMessage")}</th>
           </tr>
         </thead>
         <tbody>
           {events.map((event) => (
             <tr key={event.id}>
               <td>{formatDateTime(event.ts)}</td>
-              <td>{event.host || "N/A"}</td>
-              <td>{event.os_type || "N/A"}</td>
-              <td>{event.event_type || "N/A"}</td>
-              <td>{event.event_code || "N/A"}</td>
-              <td>{event.category || "N/A"}</td>
+              <td>{event.host || t("notAvailable")}</td>
+              <td>{event.os_type || t("notAvailable")}</td>
+              <td>{event.event_type || t("notAvailable")}</td>
+              <td>{event.event_code || t("notAvailable")}</td>
+              <td>{event.category || t("notAvailable")}</td>
               <td>
                 <StatusBadge value={event.severity} />
               </td>
-              <td>{event.username || "N/A"}</td>
-              <td>{event.ip_address || "N/A"}</td>
+              <td>{event.username || t("notAvailable")}</td>
+              <td>{event.ip_address || t("notAvailable")}</td>
               <td title={event.message}>{shortenText(event.message, 96)}</td>
             </tr>
           ))}
