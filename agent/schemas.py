@@ -24,7 +24,6 @@ FIELD_LIMITS = {
 class AgentEvent:
     ts: str
     host: str
-    host_ip: Optional[str]
     os_type: Optional[str]
     event_type: str
     event_code: Optional[str]
@@ -34,6 +33,9 @@ class AgentEvent:
     ip_address: Optional[str]
     message: str
     source: Optional[str]
+    # Keep host_ip optional with a default so older call sites or partially
+    # updated agent files do not crash during live collection.
+    host_ip: Optional[str] = None
     raw_data: Optional[dict[str, Any]] = None
 
     def model_dump(self) -> dict[str, Any]:
