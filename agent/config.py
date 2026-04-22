@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+from typing import Optional
 
 
 SOURCE_DIR = Path(__file__).resolve().parent
