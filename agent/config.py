@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import tempfile
 from typing import Optional
+from urllib.parse import urlparse
 
 
 SOURCE_DIR = Path(__file__).resolve().parent
@@ -66,13 +67,14 @@ class Settings:
 def get_settings() -> Settings:
     # Cache settings so every module in the current process uses the same values.
     env_values = _load_env_file(get_env_file_path())
+    backend_url = env_values.get(
+        "BACKEND_URL", "http://127.0.0.1:8000/api/v1/ingest"
+    )
     return Settings(
-        backend_url=env_values.get(
-            "BACKEND_URL", "http://127.0.0.1:8000/api/v1/ingest"
-        ),
+        backend_url=backend_url,
         poll_interval=int(env_values.get("POLL_INTERVAL", "5")),
         hostname=env_values.get("HOSTNAME", socket.gethostname()),
-        host_ip=env_values.get("HOST_IP") or _detect_host_ip(),
+        host_ip=env_values.get("HOST_IP") or _detect_host_ip(backend_url),
         os_type=env_values.get("OS_TYPE", "windows"),
         event_source=env_values.get("EVENT_SOURCE", "sample"),
         max_events_per_cycle=int(env_values.get("MAX_EVENTS_PER_CYCLE", "3")),
@@ -135,16 +137,64 @@ def _is_writable_dir(path: Path) -> bool:
         return False
 
 
-def _detect_host_ip() -> Optional[str]:
-    # Resolve the machine's primary outbound IPv4 address without sending any
-    # network traffic. This gives the backend a useful host-level address even
-    # when individual events do not contain a remote peer IP.
+def _detect_host_ip(backend_url: str) -> Optional[str]:
+    # Resolve the machine's host IP without requiring internet access.
+    # We first try the backend host because it is the most relevant route in
+    # real deployments, then fall back to a generic public resolver, and
+    # finally inspect local hostname resolution as a last resort.
+    backend_host = urlparse(backend_url).hostname
+    candidates = [backend_host, "8.8.8.8"]
+
+    for target in candidates:
+        address = _probe_outbound_ip(target)
+        if address:
+            return address
+
+    for address in _hostname_ip_candidates():
+        if _is_usable_ipv4(address):
+            return address
+
+    return None
+
+
+def _probe_outbound_ip(target: Optional[str]) -> Optional[str]:
+    if not target:
+        return None
+
     probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        probe.connect(("8.8.8.8", 80))
+        probe.connect((target, 80))
         address = probe.getsockname()[0]
-        return address or None
+        return address if _is_usable_ipv4(address) else None
     except OSError:
         return None
     finally:
         probe.close()
+
+
+def _hostname_ip_candidates() -> list[str]:
+    addresses: list[str] = []
+
+    try:
+        hostname = socket.gethostname()
+        addresses.extend(socket.gethostbyname_ex(hostname)[2])
+    except OSError:
+        pass
+
+    try:
+        for result in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            candidate = result[4][0]
+            if candidate not in addresses:
+                addresses.append(candidate)
+    except OSError:
+        pass
+
+    return addresses
+
+
+def _is_usable_ipv4(address: Optional[str]) -> bool:
+    if not address:
+        return False
+    if address.startswith("127.") or address == "0.0.0.0":
+        return False
+    return True

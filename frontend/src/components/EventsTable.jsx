@@ -30,13 +30,14 @@ export default function EventsTable({ events, sort, onSort, t }) {
           <tr>
             {renderSortableHeader(t("tableTime"), "ts")}
             {renderSortableHeader(t("tableHost"), "host")}
+            {renderSortableHeader(t("tableHostIP"), "host_ip")}
             {renderSortableHeader(t("tableOS"), "os_type")}
             {renderSortableHeader(t("tableType"), "event_type")}
             {renderSortableHeader(t("tableCode"), "event_code")}
             {renderSortableHeader(t("tableCategory"), "category")}
             {renderSortableHeader(t("tableSeverity"), "severity")}
             {renderSortableHeader(t("tableUser"), "username")}
-            {renderSortableHeader(t("tableIP"), "ip_address")}
+            {renderSortableHeader(t("tableEventIP"), "ip_address")}
             <th>{t("tableMessage")}</th>
           </tr>
         </thead>
@@ -45,6 +46,7 @@ export default function EventsTable({ events, sort, onSort, t }) {
             <tr key={event.id}>
               <td>{formatDateTime(event.ts)}</td>
               <td>{event.host || t("notAvailable")}</td>
+              <td>{event.host_ip || t("notAvailable")}</td>
               <td>{event.os_type || t("notAvailable")}</td>
               <td>{event.event_type || t("notAvailable")}</td>
               <td>{event.event_code || t("notAvailable")}</td>

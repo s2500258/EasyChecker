@@ -15,6 +15,7 @@ def run_agent() -> None:
         f"(source={settings.event_source}, host={settings.hostname}, "
         f"interval={settings.poll_interval}s, run_once={settings.run_once})"
     )
+    print(f"Detected host IP: {settings.host_ip or 'N/A'}")
     # Print runtime paths explicitly so packaged Windows builds are easier to
     # diagnose when `.env` or state persistence does not behave as expected.
     print(f"Runtime directory: {get_runtime_dir()}")
