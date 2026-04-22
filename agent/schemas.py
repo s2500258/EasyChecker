@@ -6,6 +6,7 @@ from typing import Any, Optional
 # before they trigger HTTP 422 validation errors during ingest.
 FIELD_LIMITS = {
     "host": 255,
+    "host_ip": 100,
     "os_type": 50,
     "event_type": 100,
     "event_code": 100,
@@ -23,6 +24,7 @@ FIELD_LIMITS = {
 class AgentEvent:
     ts: str
     host: str
+    host_ip: Optional[str]
     os_type: Optional[str]
     event_type: str
     event_code: Optional[str]

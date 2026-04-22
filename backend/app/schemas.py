@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class EventIn(BaseModel):
     ts: str = Field(..., description="Event timestamp in ISO 8601 format")
     host: str = Field(..., min_length=1, max_length=255)
+    host_ip: Optional[str] = Field(default=None, max_length=100)
     os_type: Optional[str] = Field(default=None, max_length=50)
     event_type: str = Field(..., min_length=1, max_length=100)
     event_code: Optional[str] = Field(default=None, max_length=100)
@@ -43,6 +44,7 @@ class AlertOut(BaseModel):
 # Aggregated host-level summary for the Hosts page.
 class HostOut(BaseModel):
     host: str
+    host_ip: Optional[str] = None
     os_type: Optional[str] = None
     last_seen: Optional[str] = None
     activity_status: str

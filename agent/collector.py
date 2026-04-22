@@ -27,7 +27,11 @@ def collect_events() -> list[AgentEvent]:
 
     # Sample mode is useful for safe end-to-end testing without depending on Windows logs.
     if settings.event_source == "sample":
-        events = build_sample_events(host=settings.hostname, os_type=settings.os_type)
+        events = build_sample_events(
+            host=settings.hostname,
+            host_ip=settings.host_ip,
+            os_type=settings.os_type,
+        )
         filtered_events = _filter_events(events, settings)
         return filtered_events[: settings.max_events_per_cycle]
 
@@ -225,11 +229,11 @@ def _normalize_windows_event(
     if event_id == 4625:
         if not settings.collect_login_events:
             return None
-        return _normalize_failed_login(raw_event, fallback_host)
+        return _normalize_failed_login(raw_event, fallback_host, settings)
     if event_id == 4624:
         if not settings.collect_login_events:
             return None
-        return _normalize_successful_login(raw_event, fallback_host)
+        return _normalize_successful_login(raw_event, fallback_host, settings)
     if event_id == 4688:
         if not settings.collect_process_events:
             return None
@@ -241,7 +245,9 @@ def _normalize_windows_event(
     return None
 
 
-def _normalize_failed_login(raw_event: dict[str, Any], fallback_host: str) -> AgentEvent:
+def _normalize_failed_login(
+    raw_event: dict[str, Any], fallback_host: str, settings: Settings
+) -> AgentEvent:
     # Event ID 4625: failed authentication attempt.
     data = raw_event["event_data"]
     username = _pick_first(data, ["TargetUserName", "SubjectUserName"])
@@ -252,6 +258,7 @@ def _normalize_failed_login(raw_event: dict[str, Any], fallback_host: str) -> Ag
     return AgentEvent(
         ts=raw_event["timestamp"],
         host=raw_event["computer"] or fallback_host,
+        host_ip=settings.host_ip,
         os_type="windows",
         event_type="authentication",
         event_code="4625",
@@ -272,7 +279,7 @@ def _normalize_failed_login(raw_event: dict[str, Any], fallback_host: str) -> Ag
 
 
 def _normalize_successful_login(
-    raw_event: dict[str, Any], fallback_host: str
+    raw_event: dict[str, Any], fallback_host: str, settings: Settings
 ) -> AgentEvent:
     # Event ID 4624: successful authentication.
     data = raw_event["event_data"]
@@ -283,6 +290,7 @@ def _normalize_successful_login(
     return AgentEvent(
         ts=raw_event["timestamp"],
         host=raw_event["computer"] or fallback_host,
+        host_ip=settings.host_ip,
         os_type="windows",
         event_type="authentication",
         event_code="4624",
@@ -317,6 +325,7 @@ def _normalize_process_created(
     return AgentEvent(
         ts=raw_event["timestamp"],
         host=raw_event["computer"] or fallback_host,
+        host_ip=settings.host_ip,
         os_type="windows",
         event_type="process",
         event_code="4688",
@@ -364,6 +373,7 @@ def _normalize_service_change(
     return AgentEvent(
         ts=raw_event["timestamp"],
         host=raw_event["computer"] or fallback_host,
+        host_ip=settings.host_ip,
         os_type="windows",
         event_type="system",
         event_code="7036",

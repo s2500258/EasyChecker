@@ -10,6 +10,7 @@ def init_db() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 ts TEXT NOT NULL,
                 host TEXT NOT NULL,
+                host_ip TEXT,
                 os_type TEXT,
                 event_type TEXT NOT NULL,
                 event_code TEXT,
@@ -46,6 +47,7 @@ def _ensure_event_columns(cursor) -> None:
     existing_columns = {row[1] for row in cursor.fetchall()}
 
     expected_columns = {
+        "host_ip": "TEXT",
         "os_type": "TEXT",
         "event_code": "TEXT",
         "category": "TEXT",

@@ -31,6 +31,7 @@ def _failed_login_payload(offset_seconds: int) -> dict:
     return {
         "ts": timestamp,
         "host": "WIN-PC-01",
+        "host_ip": "192.168.5.101",
         "os_type": "windows",
         "event_type": "authentication",
         "event_code": "4625",
@@ -51,6 +52,7 @@ def _suspicious_process_payload(offset_seconds: int) -> dict:
     return {
         "ts": timestamp,
         "host": "WIN-LAB-02",
+        "host_ip": "192.168.5.102",
         "os_type": "windows",
         "event_type": "process",
         "event_code": "4688",
@@ -73,6 +75,7 @@ def _critical_service_payload() -> dict:
     return {
         "ts": timestamp,
         "host": "WIN-OPS-03",
+        "host_ip": "192.168.5.103",
         "os_type": "windows",
         "event_type": "system",
         "event_code": "7036",
@@ -113,6 +116,7 @@ def test_ingest_events_and_generate_one_alert() -> None:
     assert alerts[0]["host"] == "WIN-PC-01"
     assert alerts[0]["event_count"] == 5
     assert events[0]["os_type"] == "windows"
+    assert events[0]["host_ip"] == "192.168.5.101"
     assert events[0]["event_code"] == "4625"
     assert events[0]["category"] == "login_failure"
     assert events[0]["username"] == "pytest-user"
@@ -184,12 +188,15 @@ def test_hosts_endpoint_returns_aggregated_host_summaries() -> None:
     assert hosts_response.status_code == 200
     assert {"WIN-PC-01", "WIN-LAB-02", "WIN-OPS-03"}.issubset(by_host.keys())
     assert by_host["WIN-PC-01"]["total_events"] == 5
+    assert by_host["WIN-PC-01"]["host_ip"] == "192.168.5.101"
     assert by_host["WIN-PC-01"]["total_alerts"] == 1
-    assert by_host["WIN-PC-01"]["highest_severity"] == "MEDIUM"
+    assert by_host["WIN-PC-01"]["highest_severity"] == "HIGH"
     assert by_host["WIN-PC-01"]["last_event_type"] == "authentication"
     assert by_host["WIN-LAB-02"]["total_events"] == 3
+    assert by_host["WIN-LAB-02"]["host_ip"] == "192.168.5.102"
     assert by_host["WIN-LAB-02"]["total_alerts"] == 1
     assert by_host["WIN-LAB-02"]["highest_severity"] == "HIGH"
     assert by_host["WIN-OPS-03"]["total_events"] == 1
+    assert by_host["WIN-OPS-03"]["host_ip"] == "192.168.5.103"
     assert by_host["WIN-OPS-03"]["total_alerts"] == 1
     assert by_host["WIN-OPS-03"]["highest_severity"] == "HIGH"

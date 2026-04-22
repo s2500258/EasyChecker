@@ -1,16 +1,20 @@
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from schemas import AgentEvent
 
 
 # Deterministic sample events used for safe connectivity testing and local demos.
-def build_sample_events(*, host: str, os_type: str) -> list[AgentEvent]:
+def build_sample_events(
+    *, host: str, host_ip: Optional[str], os_type: str
+) -> list[AgentEvent]:
     timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
     return [
         AgentEvent(
             ts=timestamp,
             host=host,
+            host_ip=host_ip,
             os_type=os_type,
             event_type="authentication",
             event_code="4625",
@@ -29,6 +33,7 @@ def build_sample_events(*, host: str, os_type: str) -> list[AgentEvent]:
         AgentEvent(
             ts=timestamp,
             host=host,
+            host_ip=host_ip,
             os_type=os_type,
             event_type="authentication",
             event_code="4624",
@@ -46,6 +51,7 @@ def build_sample_events(*, host: str, os_type: str) -> list[AgentEvent]:
         AgentEvent(
             ts=timestamp,
             host=host,
+            host_ip=host_ip,
             os_type=os_type,
             event_type="process",
             event_code="4688",
@@ -65,6 +71,7 @@ def build_sample_events(*, host: str, os_type: str) -> list[AgentEvent]:
         AgentEvent(
             ts=timestamp,
             host=host,
+            host_ip=host_ip,
             os_type=os_type,
             event_type="system",
             event_code="7036",
@@ -83,6 +90,7 @@ def build_sample_events(*, host: str, os_type: str) -> list[AgentEvent]:
         AgentEvent(
             ts=timestamp,
             host=host,
+            host_ip=host_ip,
             os_type=os_type,
             event_type="system",
             event_code="7036",
@@ -108,6 +116,7 @@ def build_fleet_sample_events() -> list[AgentEvent]:
         {
             "agent_id": "agent-win-01",
             "host": "WIN-PC-01",
+            "host_ip": "192.168.1.101",
             "username": "student",
             "ip_address": "192.168.1.50",
             "pattern": "brute_force",
@@ -115,6 +124,7 @@ def build_fleet_sample_events() -> list[AgentEvent]:
         {
             "agent_id": "agent-win-02",
             "host": "WIN-LAB-02",
+            "host_ip": "192.168.1.102",
             "username": "analyst",
             "ip_address": "192.168.1.51",
             "pattern": "suspicious_processes",
@@ -122,6 +132,7 @@ def build_fleet_sample_events() -> list[AgentEvent]:
         {
             "agent_id": "agent-win-03",
             "host": "WIN-OPS-03",
+            "host_ip": "192.168.1.103",
             "username": "operator",
             "ip_address": "192.168.1.52",
             "pattern": "service_disruption",
@@ -143,6 +154,7 @@ def build_fleet_sample_events() -> list[AgentEvent]:
                     timestamp=timestamp,
                     agent_id=agent["agent_id"],
                     host=agent["host"],
+                    host_ip=agent["host_ip"],
                     username=agent["username"],
                     ip_address=agent["ip_address"],
                 )
@@ -158,6 +170,7 @@ def _build_agent_event(
     timestamp: str,
     agent_id: str,
     host: str,
+    host_ip: str,
     username: str,
     ip_address: str,
 ) -> AgentEvent:
@@ -168,6 +181,7 @@ def _build_agent_event(
             return AgentEvent(
                 ts=timestamp,
                 host=host,
+                host_ip=host_ip,
                 os_type="windows",
                 event_type="authentication",
                 event_code="4625",
@@ -188,6 +202,7 @@ def _build_agent_event(
         return AgentEvent(
             ts=timestamp,
             host=host,
+            host_ip=host_ip,
             os_type="windows",
             event_type="authentication",
             event_code="4624",
@@ -223,6 +238,7 @@ def _build_agent_event(
             return AgentEvent(
                 ts=timestamp,
                 host=host,
+                host_ip=host_ip,
                 os_type="windows",
                 event_type="authentication",
                 event_code=event_code,
@@ -238,6 +254,7 @@ def _build_agent_event(
         return AgentEvent(
             ts=timestamp,
             host=host,
+            host_ip=host_ip,
             os_type="windows",
             event_type="process",
             event_code=event_code,
@@ -277,6 +294,7 @@ def _build_agent_event(
     return AgentEvent(
         ts=timestamp,
         host=host,
+        host_ip=host_ip,
         os_type="windows",
         event_type="system",
         event_code=event_code,

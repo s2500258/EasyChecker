@@ -20,7 +20,7 @@ def list_hosts() -> list[HostOut]:
     with db_cursor() as cursor:
         cursor.execute(
             """
-            SELECT host, os_type, event_type, severity, ts
+            SELECT host, host_ip, os_type, event_type, severity, ts
             FROM events
             ORDER BY ts DESC, id DESC
             """
@@ -43,6 +43,7 @@ def list_hosts() -> list[HostOut]:
             host,
             {
                 "host": host,
+                "host_ip": row["host_ip"],
                 "os_type": row["os_type"],
                 "last_seen": row["ts"],
                 "activity_status": _activity_status(row["ts"]),
@@ -56,11 +57,15 @@ def list_hosts() -> list[HostOut]:
         summary["total_events"] += 1
         if not summary["os_type"] and row["os_type"]:
             summary["os_type"] = row["os_type"]
+        if not summary["host_ip"] and row["host_ip"]:
+            summary["host_ip"] = row["host_ip"]
         if row["ts"] and (
             not summary["last_seen"] or row["ts"] > summary["last_seen"]
         ):
             summary["last_seen"] = row["ts"]
             summary["activity_status"] = _activity_status(row["ts"])
+            if row["host_ip"]:
+                summary["host_ip"] = row["host_ip"]
         if _severity_rank(row["severity"]) > _severity_rank(summary["highest_severity"]):
             summary["highest_severity"] = row["severity"]
 
@@ -70,6 +75,7 @@ def list_hosts() -> list[HostOut]:
             host,
             {
                 "host": host,
+                "host_ip": None,
                 "os_type": None,
                 "last_seen": None,
                 "activity_status": "OFFLINE",

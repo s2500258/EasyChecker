@@ -19,6 +19,7 @@ def list_events() -> list[EventOut]:
                 id,
                 ts,
                 host,
+                host_ip,
                 os_type,
                 event_type,
                 event_code,

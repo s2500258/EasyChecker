@@ -30,6 +30,7 @@ export default function HostsTable({ hosts, sort, onSort, t }) {
           <tr>
             {renderSortableHeader(t("hostsStatus"), "activity_status", "host-status-column")}
             {renderSortableHeader(t("tableHost"), "host")}
+            {renderSortableHeader(t("hostsHostIp"), "host_ip")}
             {renderSortableHeader(t("tableOS"), "os_type")}
             {renderSortableHeader(t("hostsLastSeen"), "last_seen")}
             {renderSortableHeader(t("hostsTotalEvents"), "total_events")}
@@ -61,6 +62,7 @@ export default function HostsTable({ hosts, sort, onSort, t }) {
                 />
               </td>
               <td>{host.host || t("notAvailable")}</td>
+              <td>{host.host_ip || t("notAvailable")}</td>
               <td>{host.os_type || t("notAvailable")}</td>
               <td>{host.last_seen ? formatDateTime(host.last_seen) : t("notAvailable")}</td>
               <td>{host.total_events}</td>

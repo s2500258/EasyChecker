@@ -49,6 +49,7 @@ class Settings:
     backend_url: str
     poll_interval: int
     hostname: str
+    host_ip: Optional[str]
     os_type: str
     event_source: str
     max_events_per_cycle: int
@@ -70,6 +71,7 @@ def get_settings() -> Settings:
         ),
         poll_interval=int(env_values.get("POLL_INTERVAL", "5")),
         hostname=env_values.get("HOSTNAME", socket.gethostname()),
+        host_ip=env_values.get("HOST_IP") or _detect_host_ip(),
         os_type=env_values.get("OS_TYPE", "windows"),
         event_source=env_values.get("EVENT_SOURCE", "sample"),
         max_events_per_cycle=int(env_values.get("MAX_EVENTS_PER_CYCLE", "3")),
@@ -130,3 +132,18 @@ def _is_writable_dir(path: Path) -> bool:
         return True
     except OSError:
         return False
+
+
+def _detect_host_ip() -> Optional[str]:
+    # Resolve the machine's primary outbound IPv4 address without sending any
+    # network traffic. This gives the backend a useful host-level address even
+    # when individual events do not contain a remote peer IP.
+    probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        probe.connect(("8.8.8.8", 80))
+        address = probe.getsockname()[0]
+        return address or None
+    except OSError:
+        return None
+    finally:
+        probe.close()

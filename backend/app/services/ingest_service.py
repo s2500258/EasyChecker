@@ -19,6 +19,7 @@ def ingest_event(event: EventIn) -> dict:
             INSERT INTO events (
                 ts,
                 host,
+                host_ip,
                 os_type,
                 event_type,
                 event_code,
@@ -34,6 +35,7 @@ def ingest_event(event: EventIn) -> dict:
             VALUES (
                 :ts,
                 :host,
+                :host_ip,
                 :os_type,
                 :event_type,
                 :event_code,
