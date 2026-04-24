@@ -10,6 +10,7 @@ def evaluate_event_rules(
     *,
     host: str,
     event_type: str,
+    event_code: Optional[str],
     category: Optional[str],
     severity: str,
     message: str,
@@ -19,7 +20,12 @@ def evaluate_event_rules(
     settings = get_settings()
     alerts = []
 
-    if "failed login" in message.lower():
+    if _is_failed_login_event(
+        event_type=event_type,
+        event_code=event_code,
+        category=category,
+        message=message,
+    ):
         latest_matches = _count_recent_failed_logins(host=host)
         if latest_matches == settings.failed_login_threshold:
             alerts.append(
@@ -77,7 +83,7 @@ def _count_recent_failed_logins(*, host: str) -> int:
     with db_cursor() as cursor:
         cursor.execute(
             """
-            SELECT ts, message
+            SELECT ts, event_type, event_code, category, message
             FROM events
             WHERE host = ?
             ORDER BY ts DESC
@@ -91,7 +97,12 @@ def _count_recent_failed_logins(*, host: str) -> int:
     count = 0
 
     for row in rows:
-        if "failed login" not in row["message"].lower():
+        if not _is_failed_login_event(
+            event_type=row["event_type"],
+            event_code=row["event_code"],
+            category=row["category"],
+            message=row["message"],
+        ):
             continue
 
         event_time = parse_event_timestamp(row["ts"])
@@ -171,3 +182,21 @@ def _create_alert(
         alert["id"] = cursor.lastrowid
 
     return alert
+
+
+def _is_failed_login_event(
+    *,
+    event_type: Optional[str],
+    event_code: Optional[str],
+    category: Optional[str],
+    message: Optional[str],
+) -> bool:
+    # Prefer normalized event fields because they are stable across Windows
+    # locale changes, then fall back to the human-readable message text.
+    if (event_code or "").strip() == "4625":
+        return True
+    if (category or "").strip().lower() == "login_failure":
+        return True
+    if (event_type or "").strip().lower() != "authentication":
+        return False
+    return "failed login" in (message or "").lower()

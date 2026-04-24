@@ -45,6 +45,12 @@ def _failed_login_payload(offset_seconds: int) -> dict:
     }
 
 
+def _localized_failed_login_payload(offset_seconds: int) -> dict:
+    payload = _failed_login_payload(offset_seconds)
+    payload["message"] = "Не удалось выполнить вход в учетную запись."
+    return payload
+
+
 def _suspicious_process_payload(offset_seconds: int) -> dict:
     timestamp = (
         datetime.now(timezone.utc) - timedelta(minutes=4, seconds=offset_seconds)
@@ -122,6 +128,23 @@ def test_ingest_events_and_generate_one_alert() -> None:
     assert events[0]["username"] == "pytest-user"
     assert events[0]["ip_address"] == "10.0.0.15"
     assert events[0]["raw_data"]["provider"] == "Security"
+
+
+def test_ingest_generates_bruteforce_alert_for_localized_failed_login_messages() -> None:
+    _reset_database()
+
+    with TestClient(app) as client:
+        for offset in range(50, 45, -1):
+            response = client.post(
+                "/api/v1/ingest", json=_localized_failed_login_payload(offset)
+            )
+            assert response.status_code == 200
+
+        alerts_response = client.get("/api/v1/alerts")
+
+    alerts = alerts_response.json()
+
+    assert any(alert["type"] == "Brute force attempt" for alert in alerts)
 
 
 def test_ingest_rejects_invalid_payload() -> None:

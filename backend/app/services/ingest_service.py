@@ -59,6 +59,7 @@ def ingest_event(event: EventIn) -> dict:
     generated_alerts = evaluate_event_rules(
         host=event.host,
         event_type=event.event_type,
+        event_code=event.event_code,
         category=event.category,
         severity=event.severity,
         message=event.message,
