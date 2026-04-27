@@ -39,6 +39,7 @@ class AlertOut(BaseModel):
     message: str
     created_at: str
     event_count: int
+    event_ids: list[int] = []
 
 
 # Aggregated host-level summary for the Hosts page.

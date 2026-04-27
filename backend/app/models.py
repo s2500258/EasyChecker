@@ -38,6 +38,17 @@ def init_db() -> None:
             )
             """
         )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS alert_events (
+                alert_id INTEGER NOT NULL,
+                event_id INTEGER NOT NULL,
+                PRIMARY KEY (alert_id, event_id),
+                FOREIGN KEY (alert_id) REFERENCES alerts(id),
+                FOREIGN KEY (event_id) REFERENCES events(id)
+            )
+            """
+        )
         _ensure_event_columns(cursor)
 
 

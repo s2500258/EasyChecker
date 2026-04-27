@@ -5,8 +5,9 @@ import FilterBar from "../components/FilterBar";
 import { sortUniqueValues } from "../utils/formatters";
 
 // Full alerts page with simple host and severity filters.
-export default function AlertsPage({ alerts, loading, error, t }) {
+export default function AlertsPage({ alerts, events, loading, error, t }) {
   const PAGE_SIZE_OPTIONS = ["20", "50", "100", "all"];
+  const [showRules, setShowRules] = useState(false);
   const [filters, setFilters] = useState({
     host: "",
     severity: "",
@@ -25,6 +26,23 @@ export default function AlertsPage({ alerts, loading, error, t }) {
       categories: [],
     }),
     [alerts],
+  );
+  const alertRules = useMemo(
+    () => [
+      {
+        title: t("alertRuleBruteforceTitle"),
+        body: t("alertRuleBruteforceBody"),
+      },
+      {
+        title: t("alertRuleProcessTitle"),
+        body: t("alertRuleProcessBody"),
+      },
+      {
+        title: t("alertRuleServiceTitle"),
+        body: t("alertRuleServiceBody"),
+      },
+    ],
+    [t],
   );
 
   const filteredAlerts = useMemo(() => {
@@ -83,9 +101,35 @@ export default function AlertsPage({ alerts, loading, error, t }) {
   return (
     <section className="panel">
       <div className="panel-header">
-        <h2>{t("alertsTitle")}</h2>
-        <p>{t("alertsCopy")}</p>
+        <div>
+          <h2>{t("alertsTitle")}</h2>
+          <p>{t("alertsCopy")}</p>
+        </div>
+        <button
+          className="about-link rules-link"
+          onClick={() => setShowRules((value) => !value)}
+          type="button"
+        >
+          {showRules ? t("alertRulesHide") : t("alertRulesShow")}
+        </button>
       </div>
+
+      {showRules ? (
+        <section className="rules-panel" aria-label={t("alertRulesTitle")}>
+          <div className="rules-panel-header">
+            <h3>{t("alertRulesTitle")}</h3>
+            <p>{t("alertRulesIntro")}</p>
+          </div>
+          <div className="rules-list">
+            {alertRules.map((rule) => (
+              <article className="rule-card" key={rule.title}>
+                <h4>{rule.title}</h4>
+                <p>{rule.body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <FilterBar filters={filters} onChange={updateFilter} options={options} t={t} />
 
@@ -119,7 +163,13 @@ export default function AlertsPage({ alerts, loading, error, t }) {
             </p>
           </div>
 
-          <AlertsTable alerts={pagedAlerts} sort={sort} onSort={updateSort} t={t} />
+          <AlertsTable
+            alerts={pagedAlerts}
+            events={events}
+            sort={sort}
+            onSort={updateSort}
+            t={t}
+          />
 
           <div className="pagination-footer">
             <p className="pagination-summary">

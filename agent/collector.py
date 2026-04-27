@@ -20,6 +20,31 @@ WINDOWS_CHANNELS = {
     "System": [7036],
 }
 XML_NAMESPACE = {"evt": "http://schemas.microsoft.com/win/2004/08/events/event"}
+STOPPED_STATE_HINTS = (
+    "stopped",
+    "stop",
+    "pysayt",
+    "pysaht",
+    "pys",
+    "ostanov",
+)
+CRITICAL_SERVICE_ALIASES = {
+    "windows_defender": (
+        "windows defender",
+        "microsoft defender",
+        "defender antivirus",
+        "zaщитник windows",
+        "защитник windows",
+        "microsoft defender antivirus",
+    ),
+    "security_center": (
+        "security center",
+        "windows security center",
+        "turvakeskus",
+        "центр обеспечения безопасности",
+        "центр безопасности",
+    ),
+}
 
 
 def collect_events() -> list[AgentEvent]:
@@ -361,8 +386,9 @@ def _normalize_service_change(
     if not _matches_allowlist(service_name, settings.service_name_allowlist):
         return None
 
-    state_normalized = (state or "").strip().lower()
-    category = "service_stopped" if state_normalized == "stopped" else "service_state_change"
+    service_key = _classify_service_key(service_name)
+    is_stopped = _is_stopped_service_state(state=state, message=raw_event["message"])
+    category = "service_stopped" if is_stopped else "service_state_change"
     severity = "HIGH" if category == "service_stopped" else "MEDIUM"
     default_message = (
         f"Service {service_name} stopped"
@@ -388,6 +414,7 @@ def _normalize_service_change(
             "channel": raw_event["channel"],
             "record_id": raw_event["record_id"],
             "service_name": service_name,
+            "service_key": service_key,
             "state": state,
         },
     )
@@ -423,6 +450,35 @@ def _matches_allowlist(value: Optional[str], allowlist: list[str]) -> bool:
     if not value:
         return False
     return value.strip().lower() in allowlist
+
+
+def _is_stopped_service_state(*, state: Optional[str], message: Optional[str]) -> bool:
+    # Windows may localize service-state text, so use a few resilient stop-word
+    # stems across common locales instead of a single exact English match.
+    state_text = _normalize_text_for_matching(state)
+    message_text = _normalize_text_for_matching(message)
+    return any(
+        hint in state_text or hint in message_text
+        for hint in STOPPED_STATE_HINTS
+    )
+
+
+def _classify_service_key(service_name: Optional[str]) -> Optional[str]:
+    normalized_name = _normalize_text_for_matching(service_name)
+    if not normalized_name:
+        return None
+
+    for service_key, aliases in CRITICAL_SERVICE_ALIASES.items():
+        if any(alias in normalized_name for alias in aliases):
+            return service_key
+
+    return None
+
+
+def _normalize_text_for_matching(value: Optional[str]) -> str:
+    if not value:
+        return ""
+    return value.strip().lower().replace("ä", "a").replace("ö", "o")
 
 
 def _format_event_message(

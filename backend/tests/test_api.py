@@ -94,9 +94,24 @@ def _critical_service_payload() -> dict:
         "raw_data": {
             "provider": "Service Control Manager",
             "service_name": "Windows Defender",
+            "service_key": "windows_defender",
             "state": "stopped",
         },
     }
+
+
+def _localized_critical_service_payload() -> dict:
+    payload = _critical_service_payload()
+    payload["host"] = "WIN-FI-04"
+    payload["host_ip"] = "192.168.5.104"
+    payload["message"] = "Microsoft Defender -palvelu siirtyi pysaytetty-tilaan."
+    payload["raw_data"] = {
+        "provider": "Service Control Manager",
+        "service_name": "Turvakeskus",
+        "service_key": "security_center",
+        "state": "pysaytetty",
+    }
+    return payload
 
 
 def test_ingest_events_and_generate_one_alert() -> None:
@@ -121,6 +136,7 @@ def test_ingest_events_and_generate_one_alert() -> None:
     assert responses[-1]["alerts"][0]["type"] == "Brute force attempt"
     assert alerts[0]["host"] == "WIN-PC-01"
     assert alerts[0]["event_count"] == 5
+    assert len(alerts[0]["event_ids"]) == 5
     assert events[0]["os_type"] == "windows"
     assert events[0]["host_ip"] == "192.168.5.101"
     assert events[0]["event_code"] == "4625"
@@ -145,6 +161,10 @@ def test_ingest_generates_bruteforce_alert_for_localized_failed_login_messages()
     alerts = alerts_response.json()
 
     assert any(alert["type"] == "Brute force attempt" for alert in alerts)
+    localized_alert = next(
+        alert for alert in alerts if alert["type"] == "Brute force attempt"
+    )
+    assert len(localized_alert["event_ids"]) == 5
 
 
 def test_ingest_rejects_invalid_payload() -> None:
@@ -184,6 +204,32 @@ def test_ingest_generates_process_and_service_alerts() -> None:
 
     assert "Suspicious process burst" in alert_types
     assert "Critical service stopped" in alert_types
+    process_alert = next(
+        alert for alert in alerts if alert["type"] == "Suspicious process burst"
+    )
+    service_alert = next(
+        alert for alert in alerts if alert["type"] == "Critical service stopped"
+    )
+    assert len(process_alert["event_ids"]) == 3
+    assert len(service_alert["event_ids"]) == 1
+
+
+def test_ingest_generates_service_alert_for_localized_service_data() -> None:
+    _reset_database()
+
+    with TestClient(app) as client:
+        response = client.post("/api/v1/ingest", json=_localized_critical_service_payload())
+        assert response.status_code == 200
+
+        alerts_response = client.get("/api/v1/alerts")
+
+    alerts = alerts_response.json()
+
+    assert any(alert["type"] == "Critical service stopped" for alert in alerts)
+    localized_service_alert = next(
+        alert for alert in alerts if alert["type"] == "Critical service stopped"
+    )
+    assert len(localized_service_alert["event_ids"]) == 1
 
 
 def test_hosts_endpoint_returns_aggregated_host_summaries() -> None:

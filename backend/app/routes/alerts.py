@@ -19,6 +19,25 @@ def list_alerts() -> list[AlertOut]:
             ORDER BY created_at DESC, id DESC
             """
         )
-        rows = cursor.fetchall()
+        alert_rows = cursor.fetchall()
 
-    return [AlertOut(**dict(row)) for row in rows]
+        cursor.execute(
+            """
+            SELECT alert_id, event_id
+            FROM alert_events
+            ORDER BY alert_id DESC, event_id ASC
+            """
+        )
+        link_rows = cursor.fetchall()
+
+    event_ids_by_alert: dict[int, list[int]] = {}
+    for row in link_rows:
+        event_ids_by_alert.setdefault(row["alert_id"], []).append(row["event_id"])
+
+    alerts = []
+    for row in alert_rows:
+        alert = dict(row)
+        alert["event_ids"] = event_ids_by_alert.get(alert["id"], [])
+        alerts.append(AlertOut(**alert))
+
+    return alerts
