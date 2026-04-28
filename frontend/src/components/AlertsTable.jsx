@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 
 import StatusBadge from "./StatusBadge";
 import { formatDateTime, shortenText } from "../utils/formatters";
@@ -52,10 +52,9 @@ export default function AlertsTable({ alerts, events = [], sort, onSort, t }) {
             const isExpanded = expandedAlertId === alert.id;
 
             return (
-              <>
+              <Fragment key={alert.id}>
                 <tr
                   className={isExpanded ? "alert-row expanded" : "alert-row"}
-                  key={alert.id}
                 >
                   <td>{formatDateTime(alert.created_at)}</td>
                   <td>{alert.type || t("notAvailable")}</td>
@@ -85,7 +84,7 @@ export default function AlertsTable({ alerts, events = [], sort, onSort, t }) {
                   <td title={alert.message}>{shortenText(alert.message, 110)}</td>
                 </tr>
                 {isExpanded ? (
-                  <tr className="alert-events-row" key={`${alert.id}-details`}>
+                  <tr className="alert-events-row">
                     <td colSpan={7}>
                       {linkedEvents.length ? (
                         <div className="alert-events-panel">
@@ -135,7 +134,7 @@ export default function AlertsTable({ alerts, events = [], sort, onSort, t }) {
                     </td>
                   </tr>
                 ) : null}
-              </>
+              </Fragment>
             );
           })}
         </tbody>

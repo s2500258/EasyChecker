@@ -319,3 +319,39 @@ EasyChecker Update History
 80. Displayed the host activity indicator on the `Hosts` page as a small LED-style dot:
    - green for online
    - red for offline
+
+81. Added host-level IP tracking across the full pipeline:
+   - `host_ip` field in the agent event schema
+   - `host_ip` storage in the backend `events` table
+   - `host_ip` aggregation in the `Hosts` endpoint
+   - `Host IP` display in the frontend
+
+82. Improved agent host IP handling by:
+   - adding automatic host IP detection based on the backend route and local network data
+   - printing the detected host IP at agent startup
+   - supporting manual `HOST_IP` override in `agent/.env`
+
+83. Clarified the frontend event display so `Host IP` and `Event IP` are shown as separate columns instead of mixing host-level and event-level addressing.
+
+84. Split the deployment quick-start documentation into platform-specific guides:
+   - `QUICK_START_MAC.md`
+   - `QUICK_START_WINDOWS.md`
+   - simplified `QUICK_START.md` into a short entry page linking to both guides
+
+85. Strengthened brute-force alert detection so it no longer depends on the language of the Windows event message:
+   - the backend now prefers normalized event fields such as `event_code=4625` and `category=login_failure`
+   - added automated coverage for localized failed-login messages
+
+86. Strengthened critical service alert detection to reduce locale dependence by:
+   - normalizing service stop states in the Windows collector
+   - deriving stable service keys for important security services
+   - updating backend alert rules to use normalized service keys instead of only localized display names
+   - adding automated coverage for localized service-stop data
+
+87. Added an expandable alert-rules panel to the frontend `Alerts` page so users can view the currently implemented detection rules directly in the UI.
+
+88. Added persistent alert-to-event linking in the backend through a new `alert_events` table and updated alert API responses to include the exact `event_ids` that formed each alert.
+
+89. Extended the frontend `Alerts` table to show linked event identifiers for each generated alert.
+
+90. Added expandable alert details in the frontend so clicking an alert reveals the full normalized events that contributed to that alert, including timestamps, host, event code, category, severity, user, host IP, event IP, and message.

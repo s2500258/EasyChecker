@@ -49,6 +49,15 @@ def init_db() -> None:
             )
             """
         )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS rule_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+            """
+        )
+        _seed_rule_settings(cursor)
         _ensure_event_columns(cursor)
 
 
@@ -70,3 +79,24 @@ def _ensure_event_columns(cursor) -> None:
     for column_name, column_type in expected_columns.items():
         if column_name not in existing_columns:
             cursor.execute(f"ALTER TABLE events ADD COLUMN {column_name} {column_type}")
+
+
+def _seed_rule_settings(cursor) -> None:
+    from .config import get_settings
+
+    settings = get_settings()
+    defaults = {
+        "failed_login_threshold": str(settings.failed_login_threshold),
+        "failed_login_window_minutes": str(settings.failed_login_window_minutes),
+        "suspicious_process_threshold": str(settings.suspicious_process_threshold),
+        "suspicious_process_window_minutes": str(settings.suspicious_process_window_minutes),
+    }
+
+    for key, value in defaults.items():
+        cursor.execute(
+            """
+            INSERT OR IGNORE INTO rule_settings (key, value)
+            VALUES (?, ?)
+            """,
+            (key, value),
+        )

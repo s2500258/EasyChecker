@@ -5,9 +5,20 @@ import FilterBar from "../components/FilterBar";
 import { sortUniqueValues } from "../utils/formatters";
 
 // Full alerts page with simple host and severity filters.
-export default function AlertsPage({ alerts, events, loading, error, t }) {
+export default function AlertsPage({
+  alerts,
+  events,
+  failedLoginRule,
+  suspiciousProcessRule,
+  onUpdateFailedLoginRule,
+  onUpdateSuspiciousProcessRule,
+  loading,
+  error,
+  t,
+}) {
   const PAGE_SIZE_OPTIONS = ["20", "50", "100", "all"];
   const [showRules, setShowRules] = useState(false);
+  const [ruleSaveError, setRuleSaveError] = useState("");
   const [filters, setFilters] = useState({
     host: "",
     severity: "",
@@ -31,10 +42,12 @@ export default function AlertsPage({ alerts, events, loading, error, t }) {
     () => [
       {
         title: t("alertRuleBruteforceTitle"),
+        kind: "failed-login",
         body: t("alertRuleBruteforceBody"),
       },
       {
         title: t("alertRuleProcessTitle"),
+        kind: "suspicious-process",
         body: t("alertRuleProcessBody"),
       },
       {
@@ -98,11 +111,46 @@ export default function AlertsPage({ alerts, events, loading, error, t }) {
     setPage(1);
   }
 
+  async function updateFailedLoginRuleField(key, value) {
+    if (!failedLoginRule || !onUpdateFailedLoginRule) {
+      return;
+    }
+
+    try {
+      setRuleSaveError("");
+      await onUpdateFailedLoginRule({
+        ...failedLoginRule,
+        [key]: Number(value),
+      });
+    } catch (updateError) {
+      setRuleSaveError(updateError.message || t("alertRuleSaveError"));
+    }
+  }
+
+  async function updateSuspiciousProcessRuleField(key, value) {
+    if (!suspiciousProcessRule || !onUpdateSuspiciousProcessRule) {
+      return;
+    }
+
+    try {
+      setRuleSaveError("");
+      await onUpdateSuspiciousProcessRule({
+        ...suspiciousProcessRule,
+        [key]: Number(value),
+      });
+    } catch (updateError) {
+      setRuleSaveError(updateError.message || t("alertRuleSaveError"));
+    }
+  }
+
   return (
     <section className="panel">
       <div className="panel-header">
         <div>
-          <h2>{t("alertsTitle")}</h2>
+          <h2>
+            <span className="page-title-icon" aria-hidden="true">🚨</span>
+            {t("alertsTitle")}
+          </h2>
           <p>{t("alertsCopy")}</p>
         </div>
         <button
@@ -125,9 +173,92 @@ export default function AlertsPage({ alerts, events, loading, error, t }) {
               <article className="rule-card" key={rule.title}>
                 <h4>{rule.title}</h4>
                 <p>{rule.body}</p>
+                {rule.kind === "failed-login" && failedLoginRule ? (
+                  <div className="rule-config-row">
+                    <label>
+                      <span>{t("alertRuleAttemptsLabel")}</span>
+                      <select
+                        value={String(failedLoginRule.failed_login_threshold)}
+                        onChange={(event) =>
+                          updateFailedLoginRuleField(
+                            "failed_login_threshold",
+                            event.target.value,
+                          )
+                        }
+                      >
+                        {["3", "5", "7", "10"].map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span>{t("alertRuleMinutesLabel")}</span>
+                      <select
+                        value={String(failedLoginRule.failed_login_window_minutes)}
+                        onChange={(event) =>
+                          updateFailedLoginRuleField(
+                            "failed_login_window_minutes",
+                            event.target.value,
+                          )
+                        }
+                      >
+                        {["1", "3", "5", "10", "15"].map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                ) : null}
+                {rule.kind === "suspicious-process" && suspiciousProcessRule ? (
+                  <div className="rule-config-row">
+                    <label>
+                      <span>{t("alertRuleEventsLabel")}</span>
+                      <select
+                        value={String(suspiciousProcessRule.suspicious_process_threshold)}
+                        onChange={(event) =>
+                          updateSuspiciousProcessRuleField(
+                            "suspicious_process_threshold",
+                            event.target.value,
+                          )
+                        }
+                      >
+                        {["2", "3", "5", "7"].map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span>{t("alertRuleMinutesLabel")}</span>
+                      <select
+                        value={String(suspiciousProcessRule.suspicious_process_window_minutes)}
+                        onChange={(event) =>
+                          updateSuspiciousProcessRuleField(
+                            "suspicious_process_window_minutes",
+                            event.target.value,
+                          )
+                        }
+                      >
+                        {["1", "3", "5", "10", "15"].map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                ) : null}
               </article>
             ))}
           </div>
+          {ruleSaveError ? (
+            <div className="state-panel error compact-state-panel">{ruleSaveError}</div>
+          ) : null}
         </section>
       ) : null}
 

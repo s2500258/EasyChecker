@@ -103,6 +103,7 @@ export default function DashboardPage({
         {latestAlerts.length ? (
           <AlertsTable
             alerts={latestAlerts}
+            events={events}
             sort={alertSort}
             onSort={updateAlertSort}
             t={t}

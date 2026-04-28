@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 
-import { fetchAlerts, fetchEvents, fetchHosts } from "./api/client";
+import {
+  fetchAlerts,
+  fetchEvents,
+  fetchFailedLoginRule,
+  fetchHosts,
+  fetchSuspiciousProcessRule,
+  updateFailedLoginRule,
+  updateSuspiciousProcessRule,
+} from "./api/client";
 import Layout from "./components/Layout";
 import { messages } from "./i18n/messages";
 import AlertsPage from "./pages/AlertsPage";
@@ -18,6 +26,8 @@ export default function App() {
   const [events, setEvents] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [hosts, setHosts] = useState([]);
+  const [failedLoginRule, setFailedLoginRule] = useState(null);
+  const [suspiciousProcessRule, setSuspiciousProcessRule] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -40,14 +50,24 @@ export default function App() {
 
     try {
       // Load events and alerts together so dashboard data stays aligned.
-      const [eventsData, alertsData, hostsData] = await Promise.all([
+      const [
+        eventsData,
+        alertsData,
+        hostsData,
+        failedLoginRuleData,
+        suspiciousProcessRuleData,
+      ] = await Promise.all([
         fetchEvents(),
         fetchAlerts(),
         fetchHosts(),
+        fetchFailedLoginRule(),
+        fetchSuspiciousProcessRule(),
       ]);
       setEvents(eventsData);
       setAlerts(alertsData);
       setHosts(hostsData);
+      setFailedLoginRule(failedLoginRuleData);
+      setSuspiciousProcessRule(suspiciousProcessRuleData);
       setError("");
       setLastUpdated(new Date().toISOString());
     } catch (loadError) {
@@ -70,6 +90,18 @@ export default function App() {
     events,
     alerts,
     hosts,
+    failedLoginRule,
+    suspiciousProcessRule,
+    onUpdateFailedLoginRule: async (payload) => {
+      const updatedRule = await updateFailedLoginRule(payload);
+      setFailedLoginRule(updatedRule);
+      return updatedRule;
+    },
+    onUpdateSuspiciousProcessRule: async (payload) => {
+      const updatedRule = await updateSuspiciousProcessRule(payload);
+      setSuspiciousProcessRule(updatedRule);
+      return updatedRule;
+    },
     loading,
     error,
     onRefresh: () => loadData({ silent: true }),

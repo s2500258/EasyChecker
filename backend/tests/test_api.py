@@ -12,12 +12,42 @@ from app.models import init_db
 def _reset_database() -> None:
     # Reset SQLite tables so each test starts from a clean state.
     init_db()
+    settings = get_settings()
     db_path = Path(get_settings().sqlite_db_path)
     connection = sqlite3.connect(db_path)
     try:
         cursor = connection.cursor()
+        cursor.execute("DELETE FROM alert_events")
         cursor.execute("DELETE FROM alerts")
         cursor.execute("DELETE FROM events")
+        cursor.execute("DELETE FROM rule_settings")
+        cursor.execute(
+            """
+            INSERT INTO rule_settings (key, value) VALUES (?, ?)
+            """,
+            ("failed_login_threshold", str(settings.failed_login_threshold)),
+        )
+        cursor.execute(
+            """
+            INSERT INTO rule_settings (key, value) VALUES (?, ?)
+            """,
+            ("failed_login_window_minutes", str(settings.failed_login_window_minutes)),
+        )
+        cursor.execute(
+            """
+            INSERT INTO rule_settings (key, value) VALUES (?, ?)
+            """,
+            ("suspicious_process_threshold", str(settings.suspicious_process_threshold)),
+        )
+        cursor.execute(
+            """
+            INSERT INTO rule_settings (key, value) VALUES (?, ?)
+            """,
+            (
+                "suspicious_process_window_minutes",
+                str(settings.suspicious_process_window_minutes),
+            ),
+        )
         connection.commit()
     finally:
         connection.close()
@@ -182,6 +212,66 @@ def test_ingest_rejects_invalid_payload() -> None:
         response = client.post("/api/v1/ingest", json=invalid_payload)
 
     assert response.status_code == 422
+
+
+def test_failed_login_rule_can_be_updated_via_api() -> None:
+    _reset_database()
+
+    with TestClient(app) as client:
+        get_response = client.get("/api/v1/rules/failed-login")
+        assert get_response.status_code == 200
+        assert get_response.json()["failed_login_threshold"] == 5
+
+        update_response = client.put(
+            "/api/v1/rules/failed-login",
+            json={
+                "failed_login_threshold": 3,
+                "failed_login_window_minutes": 10,
+            },
+        )
+        assert update_response.status_code == 200
+        assert update_response.json()["failed_login_threshold"] == 3
+        assert update_response.json()["failed_login_window_minutes"] == 10
+
+        for offset in range(50, 47, -1):
+            response = client.post("/api/v1/ingest", json=_failed_login_payload(offset))
+            assert response.status_code == 200
+
+        alerts_response = client.get("/api/v1/alerts")
+
+    alerts = alerts_response.json()
+    assert any(alert["type"] == "Brute force attempt" for alert in alerts)
+
+
+def test_suspicious_process_rule_can_be_updated_via_api() -> None:
+    _reset_database()
+
+    with TestClient(app) as client:
+        get_response = client.get("/api/v1/rules/suspicious-process")
+        assert get_response.status_code == 200
+        assert get_response.json()["suspicious_process_threshold"] == 3
+
+        update_response = client.put(
+            "/api/v1/rules/suspicious-process",
+            json={
+                "suspicious_process_threshold": 2,
+                "suspicious_process_window_minutes": 10,
+            },
+        )
+        assert update_response.status_code == 200
+        assert update_response.json()["suspicious_process_threshold"] == 2
+        assert update_response.json()["suspicious_process_window_minutes"] == 10
+
+        for offset in range(50, 48, -1):
+            response = client.post(
+                "/api/v1/ingest", json=_suspicious_process_payload(offset)
+            )
+            assert response.status_code == 200
+
+        alerts_response = client.get("/api/v1/alerts")
+
+    alerts = alerts_response.json()
+    assert any(alert["type"] == "Suspicious process burst" for alert in alerts)
 
 
 def test_ingest_generates_process_and_service_alerts() -> None:

@@ -224,6 +224,28 @@ copy .env.example .env
 .\.venv\Scripts\python -m uvicorn app.main:app --reload
 ```
 
+## Clean the Database
+
+If you want to remove all records but keep the database structure, run:
+
+```bash
+sqlite3 backend/app.db "DELETE FROM alert_events; DELETE FROM alerts; DELETE FROM events;"
+```
+
+This clears:
+
+- linked alert-to-event records
+- alerts
+- events
+
+If you want to remove the whole SQLite file and let the backend recreate it on the next startup, run:
+
+```bash
+rm backend/app.db
+```
+
+Then restart the backend.
+
 ## Recommended Agent Test Flow
 
 ### Step 1. Safe connectivity test

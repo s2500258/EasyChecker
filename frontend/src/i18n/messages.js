@@ -65,10 +65,14 @@ export const messages = {
     alertRulesIntro: "These are the detection rules currently implemented in the backend.",
     alertRuleBruteforceTitle: "Brute Force Attempt",
     alertRuleBruteforceBody:
-      "Creates a high-severity alert when five failed login events are detected for the same host within five minutes.",
+      "Creates a high-severity alert when the selected number of failed login events is detected for the same host within the selected time window.",
+    alertRuleAttemptsLabel: "Failed attempts",
+    alertRuleEventsLabel: "High-severity events",
+    alertRuleMinutesLabel: "Minutes",
+    alertRuleSaveError: "Could not update alert rule settings.",
     alertRuleProcessTitle: "Suspicious Process Burst",
     alertRuleProcessBody:
-      "Creates a high-severity alert when three high-severity process creation events are detected on the same host within five minutes.",
+      "Creates a high-severity alert when the selected number of high-severity process creation events is detected on the same host within the selected time window.",
     alertRuleServiceTitle: "Critical Service Stopped",
     alertRuleServiceBody:
       "Creates a high-severity alert when the agent detects that a critical Windows security service such as Windows Defender or Security Center has stopped.",
@@ -164,10 +168,14 @@ export const messages = {
     alertRulesIntro: "Nämä ovat backendissä tällä hetkellä käytössä olevat havaitsemissäännöt.",
     alertRuleBruteforceTitle: "Brute Force -yritys",
     alertRuleBruteforceBody:
-      "Luo korkean vakavuuden hälytyksen, kun samalta hostilta havaitaan viisi epäonnistunutta kirjautumista viiden minuutin sisällä.",
+      "Luo korkean vakavuuden hälytyksen, kun samalta hostilta havaitaan valittu määrä epäonnistuneita kirjautumisia valitun aikaikkunan sisällä.",
+    alertRuleAttemptsLabel: "Epäonnistuneet yritykset",
+    alertRuleEventsLabel: "Korkean vakavuuden tapahtumat",
+    alertRuleMinutesLabel: "Minuutit",
+    alertRuleSaveError: "Hälytyssäännön asetuksia ei voitu päivittää.",
     alertRuleProcessTitle: "Epäilyttävä Prosessiryöppy",
     alertRuleProcessBody:
-      "Luo korkean vakavuuden hälytyksen, kun samalla hostilla havaitaan kolme korkean vakavuuden prosessinluontitapahtumaa viiden minuutin sisällä.",
+      "Luo korkean vakavuuden hälytyksen, kun samalla hostilla havaitaan valittu määrä korkean vakavuuden prosessinluontitapahtumia valitun aikaikkunan sisällä.",
     alertRuleServiceTitle: "Kriittinen Palvelu Pysähtyi",
     alertRuleServiceBody:
       "Luo korkean vakavuuden hälytyksen, kun agentti havaitsee kriittisen Windowsin tietoturvapalvelun, kuten Windows Defenderin tai Security Centerin, pysähtyneen.",

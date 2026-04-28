@@ -27,8 +27,9 @@ def evaluate_event_rules(
         category=category,
         message=message,
     ):
+        failed_login_threshold, failed_login_window_minutes = _get_failed_login_config()
         matching_event_ids = _find_recent_failed_login_event_ids(host=host)
-        if len(matching_event_ids) == settings.failed_login_threshold:
+        if len(matching_event_ids) == failed_login_threshold:
             alerts.append(
                 _create_alert(
                     alert_type="Brute force attempt",
@@ -36,7 +37,7 @@ def evaluate_event_rules(
                     host=host,
                     message=(
                         f"{len(matching_event_ids)} failed logins detected from {host} "
-                        f"within {settings.failed_login_window_minutes} minutes."
+                        f"within {failed_login_window_minutes} minutes."
                     ),
                     event_count=len(matching_event_ids),
                     event_ids=matching_event_ids,
@@ -48,8 +49,11 @@ def evaluate_event_rules(
         and category == "process_created"
         and severity.upper() == "HIGH"
     ):
+        suspicious_process_threshold, suspicious_process_window_minutes = (
+            _get_suspicious_process_config()
+        )
         matching_event_ids = _find_recent_suspicious_process_event_ids(host=host)
-        if len(matching_event_ids) == settings.suspicious_process_threshold:
+        if len(matching_event_ids) == suspicious_process_threshold:
             alerts.append(
                 _create_alert(
                     alert_type="Suspicious process burst",
@@ -57,7 +61,7 @@ def evaluate_event_rules(
                     host=host,
                     message=(
                         f"{len(matching_event_ids)} high-severity process creation events detected "
-                        f"on {host} within {settings.suspicious_process_window_minutes} minutes."
+                        f"on {host} within {suspicious_process_window_minutes} minutes."
                     ),
                     event_count=len(matching_event_ids),
                     event_ids=matching_event_ids,
@@ -85,7 +89,7 @@ def evaluate_event_rules(
 
 def _find_recent_failed_login_event_ids(*, host: str) -> list[int]:
     # Return the exact event IDs that currently form the failed-login window.
-    settings = get_settings()
+    _, failed_login_window_minutes = _get_failed_login_config()
 
     with db_cursor() as cursor:
         cursor.execute(
@@ -100,7 +104,7 @@ def _find_recent_failed_login_event_ids(*, host: str) -> list[int]:
         rows = cursor.fetchall()
 
     now = None
-    window = timedelta(minutes=settings.failed_login_window_minutes)
+    window = timedelta(minutes=failed_login_window_minutes)
     event_ids = []
 
     for row in rows:
@@ -124,7 +128,7 @@ def _find_recent_failed_login_event_ids(*, host: str) -> list[int]:
 
 def _find_recent_suspicious_process_event_ids(*, host: str) -> list[int]:
     # Return the exact process-event IDs that currently form the suspicious burst window.
-    settings = get_settings()
+    _, suspicious_process_window_minutes = _get_suspicious_process_config()
 
     with db_cursor() as cursor:
         cursor.execute(
@@ -139,7 +143,7 @@ def _find_recent_suspicious_process_event_ids(*, host: str) -> list[int]:
         rows = cursor.fetchall()
 
     now = None
-    window = timedelta(minutes=settings.suspicious_process_window_minutes)
+    window = timedelta(minutes=suspicious_process_window_minutes)
     event_ids = []
 
     for row in rows:
@@ -246,3 +250,51 @@ def _normalize_text_for_matching(value: Optional[str]) -> str:
     if not value:
         return ""
     return value.strip().lower().replace("ä", "a").replace("ö", "o")
+
+
+def _get_failed_login_config() -> tuple[int, int]:
+    settings = get_settings()
+    threshold = settings.failed_login_threshold
+    window_minutes = settings.failed_login_window_minutes
+
+    with db_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT key, value
+            FROM rule_settings
+            WHERE key IN ('failed_login_threshold', 'failed_login_window_minutes')
+            """
+        )
+        rows = cursor.fetchall()
+
+    for row in rows:
+        if row["key"] == "failed_login_threshold":
+            threshold = int(row["value"])
+        if row["key"] == "failed_login_window_minutes":
+            window_minutes = int(row["value"])
+
+    return threshold, window_minutes
+
+
+def _get_suspicious_process_config() -> tuple[int, int]:
+    settings = get_settings()
+    threshold = settings.suspicious_process_threshold
+    window_minutes = settings.suspicious_process_window_minutes
+
+    with db_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT key, value
+            FROM rule_settings
+            WHERE key IN ('suspicious_process_threshold', 'suspicious_process_window_minutes')
+            """
+        )
+        rows = cursor.fetchall()
+
+    for row in rows:
+        if row["key"] == "suspicious_process_threshold":
+            threshold = int(row["value"])
+        if row["key"] == "suspicious_process_window_minutes":
+            window_minutes = int(row["value"])
+
+    return threshold, window_minutes

@@ -83,7 +83,10 @@ export default function HostsPage({ hosts, loading, error, t }) {
   return (
     <section className="panel">
       <div className="panel-header">
-        <h2>{t("hostsTitle")}</h2>
+        <h2>
+          <span className="page-title-icon" aria-hidden="true">🖥️</span>
+          {t("hostsTitle")}
+        </h2>
         <p>{t("hostsCopy")}</p>
       </div>
 

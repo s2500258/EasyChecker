@@ -87,7 +87,10 @@ export default function EventsPage({ events, loading, error, t }) {
   return (
     <section className="panel">
       <div className="panel-header">
-        <h2>{t("eventsTitle")}</h2>
+        <h2>
+          <span className="page-title-icon" aria-hidden="true">📄</span>
+          {t("eventsTitle")}
+        </h2>
         <p>{t("eventsCopy")}</p>
       </div>
 
