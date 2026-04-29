@@ -6,6 +6,8 @@ import { formatDateTime, shortenText } from "../utils/formatters";
 // Tabular view of generated backend alerts.
 export default function AlertsTable({ alerts, events = [], sort, onSort, t }) {
   const [expandedAlertId, setExpandedAlertId] = useState(null);
+  // Build a lookup once per event refresh so alert rows can quickly resolve
+  // their linked event IDs into full event objects for the expandable panel.
   const eventsById = useMemo(() => {
     return new Map(events.map((event) => [event.id, event]));
   }, [events]);
@@ -46,6 +48,8 @@ export default function AlertsTable({ alerts, events = [], sort, onSort, t }) {
         </thead>
         <tbody>
           {alerts.map((alert) => {
+            // Alerts only store event IDs; the frontend joins them back to full
+            // event payloads so the analyst can inspect the triggering records.
             const linkedEvents = (alert.event_ids || [])
               .map((eventId) => eventsById.get(eventId))
               .filter(Boolean);

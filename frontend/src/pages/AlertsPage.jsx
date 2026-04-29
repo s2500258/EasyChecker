@@ -4,7 +4,7 @@ import AlertsTable from "../components/AlertsTable";
 import FilterBar from "../components/FilterBar";
 import { sortUniqueValues } from "../utils/formatters";
 
-// Full alerts page with simple host and severity filters.
+// Full alerts page with analyst-facing rule visibility and limited runtime tuning.
 export default function AlertsPage({
   alerts,
   events,
@@ -43,6 +43,8 @@ export default function AlertsPage({
     [alerts],
   );
   const alertRules = useMemo(
+    // The UI rule list is descriptive, while the saved dropdown values below
+    // control the actual backend thresholds for supported configurable rules.
     () => [
       {
         title: t("alertRuleBruteforceTitle"),
@@ -116,6 +118,7 @@ export default function AlertsPage({
   }
 
   useEffect(() => {
+    // Keep local drafts in sync when the backend reloads rule settings.
     setFailedLoginDraft(failedLoginRule);
   }, [failedLoginRule]);
 
@@ -143,6 +146,8 @@ export default function AlertsPage({
 
     try {
       setRuleSaveError("");
+      // Apply only on explicit user action so dropdown exploration does not
+      // immediately change active detection behavior.
       await onUpdateFailedLoginRule(failedLoginDraft);
       setRuleSaveSuccess(t("alertRuleSaved"));
       setRuleSaveSuccessKind("failed-login");

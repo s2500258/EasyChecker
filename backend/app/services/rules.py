@@ -6,6 +6,9 @@ from ..db import db_cursor
 from ..utils import parse_event_timestamp, utc_now_iso
 
 
+# Rule engine for the MVP backend.
+# Each ingested event is checked against a small set of correlation rules, and
+# matching rules create alert records plus alert-to-event links for later review.
 def evaluate_event_rules(
     *,
     event_id: int,
@@ -253,6 +256,9 @@ def _normalize_text_for_matching(value: Optional[str]) -> str:
 
 
 def _get_failed_login_config() -> tuple[int, int]:
+    # Rule values come from two layers:
+    # 1. defaults from backend settings / .env
+    # 2. runtime overrides persisted in the rule_settings table
     settings = get_settings()
     threshold = settings.failed_login_threshold
     window_minutes = settings.failed_login_window_minutes
@@ -277,6 +283,8 @@ def _get_failed_login_config() -> tuple[int, int]:
 
 
 def _get_suspicious_process_config() -> tuple[int, int]:
+    # This mirrors failed-login settings so frontend rule changes immediately
+    # affect future alert evaluation without requiring a backend restart.
     settings = get_settings()
     threshold = settings.suspicious_process_threshold
     window_minutes = settings.suspicious_process_window_minutes

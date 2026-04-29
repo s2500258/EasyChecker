@@ -27,6 +27,9 @@ export default function HostsPage({ hosts, loading, error, t }) {
   );
 
   const filteredHosts = useMemo(() => {
+    // Host filtering stays client-side for the same reason as the Events page:
+    // the MVP dataset is still small enough that instant in-browser filtering
+    // is simpler than adding more backend query parameters.
     const matchingHosts = hosts.filter((host) => {
       const matchesHost = filters.host
         ? host.host?.toLowerCase().includes(filters.host.toLowerCase())
@@ -45,6 +48,8 @@ export default function HostsPage({ hosts, loading, error, t }) {
 
   const resolvedPageSize =
     pageSize === "all" ? filteredHosts.length || 1 : Number(pageSize);
+  // Pagination is derived from the already-filtered host list so counts and
+  // page navigation stay stable after every sort/filter change.
   const totalPages =
     pageSize === "all" ? 1 : Math.max(1, Math.ceil(filteredHosts.length / resolvedPageSize));
   const currentPage = Math.min(page, totalPages);

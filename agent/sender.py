@@ -11,6 +11,8 @@ def send_event(event: AgentEvent) -> dict[str, Any]:
     # Serialize the event exactly once before sending it as JSON over HTTP.
     payload = event.model_dump()
     data = json.dumps(payload).encode("utf-8")
+    # Use the standard library HTTP client so the packaged agent can stay
+    # lightweight and avoid an extra runtime dependency such as requests.
     req = request.Request(
         get_settings().backend_url,
         data=data,

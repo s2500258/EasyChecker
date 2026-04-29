@@ -355,3 +355,36 @@ EasyChecker Update History
 89. Extended the frontend `Alerts` table to show linked event identifiers for each generated alert.
 
 90. Added expandable alert details in the frontend so clicking an alert reveals the full normalized events that contributed to that alert, including timestamps, host, event code, category, severity, user, host IP, event IP, and message.
+
+91. Added configurable brute-force alert settings with backend persistence:
+   - introduced rule-setting API endpoints for failed-login thresholds and time windows
+   - stored effective values in the backend `rule_settings` table
+   - updated alert evaluation to use database-backed values instead of fixed constants
+
+92. Added configurable suspicious-process alert settings with the same rule-setting workflow:
+   - backend API support for process-burst threshold and time-window updates
+   - persistent storage in `rule_settings`
+   - rule evaluation now reads the effective saved values
+
+93. Updated the frontend `Alerts` page so configurable rules use dropdown selectors plus explicit `Apply` buttons instead of saving immediately on every selection change.
+
+94. Added stronger visual feedback for alert-rule updates in the frontend:
+   - more prominent `Apply` buttons
+   - inline success confirmation after a rule setting is applied
+
+95. Extended the frontend `Events` page filters with:
+   - `Host IP`
+   - `Time From`
+   - `Time To`
+
+96. Refined the frontend filter bar styling to make controls narrower, closer together, and easier to fit into a single horizontal row when space allows.
+
+97. Lightened the visual styling of frontend filter inputs to improve readability within the dark dashboard theme.
+
+98. Added expandable long-message handling to the frontend `Events` table:
+   - a `Show all` / `Hide` control in the `Message` column
+   - full-width expansion rows for complete event text
+
+99. Refined expanded event-message presentation by:
+   - reducing the font size and line height for denser log-style reading
+   - switching the expanded message block to a light background with dark text for clearer contrast

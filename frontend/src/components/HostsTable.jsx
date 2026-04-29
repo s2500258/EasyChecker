@@ -43,6 +43,9 @@ export default function HostsTable({ hosts, sort, onSort, t }) {
           {hosts.map((host) => (
             <tr key={host.host}>
               <td className="host-status-cell">
+                {/* The LED-style dot intentionally avoids extra text clutter in
+                    the table while still exposing the full status via tooltip
+                    and aria-label for accessibility. */}
                 <span
                   className={
                     host.activity_status === "ONLINE"

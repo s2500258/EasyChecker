@@ -4,6 +4,9 @@ from ..utils import dump_raw_data, parse_event_timestamp, utc_now_iso
 from .rules import evaluate_event_rules
 
 
+# Ingestion service for the backend pipeline.
+# This module stores a normalized event first, then immediately evaluates alert
+# rules against the saved record so later alert links can point to real event IDs.
 def ingest_event(event: EventIn) -> dict:
     # Validate the event timestamp before anything is written to the database.
     parse_event_timestamp(event.ts)
@@ -53,7 +56,7 @@ def ingest_event(event: EventIn) -> dict:
         )
         event_id = cursor.lastrowid
 
-    # Keep a response-friendly copy of the event without raw JSON text.
+    # Keep a response-friendly copy of the event without the SQLite JSON string.
     stored_event = {"id": event_id, **payload}
     stored_event["raw_data"] = event.raw_data
     generated_alerts = evaluate_event_rules(

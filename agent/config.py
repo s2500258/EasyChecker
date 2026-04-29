@@ -114,6 +114,7 @@ def _load_env_file(path: Path) -> dict[str, str]:
 
 
 def _parse_bool(value: str) -> bool:
+    # Accept a few common truthy spellings so `.env` editing stays forgiving.
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
@@ -128,6 +129,8 @@ def _parse_csv(value: str) -> list[str]:
 
 
 def _is_writable_dir(path: Path) -> bool:
+    # Test writability by creating a temporary file rather than relying on
+    # permissions bits alone, which can be misleading on Windows.
     try:
         path.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(dir=path, delete=True):
@@ -158,6 +161,8 @@ def _detect_host_ip(backend_url: str) -> Optional[str]:
 
 
 def _probe_outbound_ip(target: Optional[str]) -> Optional[str]:
+    # A UDP "connect" never sends packets here; it simply lets the OS pick the
+    # interface and local source IP that would be used to reach the target.
     if not target:
         return None
 
@@ -173,6 +178,8 @@ def _probe_outbound_ip(target: Optional[str]) -> Optional[str]:
 
 
 def _hostname_ip_candidates() -> list[str]:
+    # Collect hostname-derived IPv4 candidates as a final fallback when route
+    # probing is not possible in the current environment.
     addresses: list[str] = []
 
     try:
@@ -193,6 +200,8 @@ def _hostname_ip_candidates() -> list[str]:
 
 
 def _is_usable_ipv4(address: Optional[str]) -> bool:
+    # Skip loopback and wildcard addresses because they are not useful for
+    # identifying the machine to the backend or frontend.
     if not address:
         return False
     if address.startswith("127.") or address == "0.0.0.0":

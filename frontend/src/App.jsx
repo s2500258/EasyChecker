@@ -34,6 +34,8 @@ export default function App() {
   const [lastUpdated, setLastUpdated] = useState("");
 
   const t = (key) => messages[language]?.[key] || messages.en[key] || key;
+  // Navigation stays local-state based for the MVP to keep the bundle and
+  // setup simple while the number of views is still small.
   const navItems = [
     { key: "dashboard", label: t("navDashboard") },
     { key: "events", label: t("navEvents") },
@@ -50,6 +52,8 @@ export default function App() {
 
     try {
       // Load events and alerts together so dashboard data stays aligned.
+      // Hosts and rule settings are loaded in the same refresh pass so every
+      // page sees a consistent snapshot of backend state.
       const [
         eventsData,
         alertsData,
@@ -93,6 +97,8 @@ export default function App() {
     failedLoginRule,
     suspiciousProcessRule,
     onUpdateFailedLoginRule: async (payload) => {
+      // Update local state immediately after a successful backend save so the
+      // rules panel reflects the active values without an extra full refresh.
       const updatedRule = await updateFailedLoginRule(payload);
       setFailedLoginRule(updatedRule);
       return updatedRule;

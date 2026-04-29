@@ -68,6 +68,8 @@ export default function EventsPage({ events, loading, error, t }) {
 
   const resolvedPageSize =
     pageSize === "all" ? filteredEvents.length || 1 : Number(pageSize);
+  // Keep pagination derived from the filtered result so page controls stay
+  // consistent after sorting, filtering, or switching page size.
   const totalPages =
     pageSize === "all" ? 1 : Math.max(1, Math.ceil(filteredEvents.length / resolvedPageSize));
   const currentPage = Math.min(page, totalPages);
@@ -188,6 +190,8 @@ export default function EventsPage({ events, loading, error, t }) {
 }
 
 function compareValues(left, right, direction) {
+  // Normalize timestamps, empty values, and strings into one comparable shape
+  // so the same sorter can be reused across all table columns.
   const normalizedLeft = normalizeValue(left);
   const normalizedRight = normalizeValue(right);
 
@@ -220,6 +224,8 @@ function formatMessage(template, values) {
 }
 
 function eventFallsAfter(eventTimestamp, fromValue) {
+  // Invalid dates should not silently hide events from the analyst, so failed
+  // parsing falls back to "keep the row visible" instead of filtering it out.
   const eventDate = new Date(eventTimestamp);
   const fromDate = new Date(fromValue);
   if (Number.isNaN(eventDate.getTime()) || Number.isNaN(fromDate.getTime())) {

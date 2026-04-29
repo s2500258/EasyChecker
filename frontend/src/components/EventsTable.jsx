@@ -5,6 +5,8 @@ import { formatDateTime, shortenText } from "../utils/formatters";
 
 // Tabular view of normalized backend events.
 export default function EventsTable({ events, sort, onSort, t }) {
+  // Expanded message rows are tracked by event ID so multiple long log entries
+  // can stay open at once while the analyst compares them.
   const [expandedMessageIds, setExpandedMessageIds] = useState([]);
 
   function renderSortableHeader(label, key) {
@@ -28,6 +30,8 @@ export default function EventsTable({ events, sort, onSort, t }) {
   }
 
   function toggleMessage(eventId) {
+    // Toggling below the main row keeps the table compact while still allowing
+    // full-width inspection of verbose Windows event messages.
     setExpandedMessageIds((current) =>
       current.includes(eventId)
         ? current.filter((id) => id !== eventId)

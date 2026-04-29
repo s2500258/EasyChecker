@@ -5,6 +5,9 @@ from ..db import db_cursor
 from ..config import get_settings
 
 
+# Small API surface for analyst-controlled rule tuning.
+# The frontend reads and updates these values so core thresholds can be changed
+# without editing code or restarting the backend.
 router = APIRouter(prefix="/rules", tags=["rules"])
 
 
@@ -93,6 +96,7 @@ def _load_suspicious_process_rule() -> dict[str, int]:
 
 
 def _load_rule_values(values: dict[str, int], keys: tuple[str, ...]) -> dict[str, int]:
+    # Start from in-code defaults, then overlay any saved runtime values.
     placeholders = ", ".join("?" for _ in keys)
 
     with db_cursor() as cursor:
@@ -113,6 +117,7 @@ def _load_rule_values(values: dict[str, int], keys: tuple[str, ...]) -> dict[str
 
 
 def _save_rule_updates(updates: dict[str, str]) -> None:
+    # Upsert lets one endpoint handle both first-time saves and later edits.
     with db_cursor(commit=True) as cursor:
         for key, value in updates.items():
             cursor.execute(
