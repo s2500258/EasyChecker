@@ -10,6 +10,9 @@ export default function EventsPage({ events, loading, error, t }) {
   const [filters, setFilters] = useState({
     host: "",
     severity: "",
+    timeFrom: "",
+    timeTo: "",
+    hostIp: "",
     category: "",
   });
   const [pageSize, setPageSize] = useState("20");
@@ -36,10 +39,26 @@ export default function EventsPage({ events, loading, error, t }) {
       const matchesSeverity = filters.severity
         ? event.severity === filters.severity
         : true;
+      const matchesTimeFrom = filters.timeFrom
+        ? eventFallsAfter(event.ts, filters.timeFrom)
+        : true;
+      const matchesTimeTo = filters.timeTo
+        ? eventFallsBefore(event.ts, filters.timeTo)
+        : true;
+      const matchesHostIp = filters.hostIp
+        ? event.host_ip?.toLowerCase().includes(filters.hostIp.toLowerCase())
+        : true;
       const matchesCategory = filters.category
         ? event.category === filters.category
         : true;
-      return matchesHost && matchesSeverity && matchesCategory;
+      return (
+        matchesHost &&
+        matchesSeverity &&
+        matchesTimeFrom &&
+        matchesTimeTo &&
+        matchesHostIp &&
+        matchesCategory
+      );
     });
 
     return [...matchingEvents].sort((left, right) =>
@@ -99,6 +118,8 @@ export default function EventsPage({ events, loading, error, t }) {
         onChange={updateFilter}
         options={options}
         showCategory
+        showHostIp
+        showTimeRange
         t={t}
       />
 
@@ -196,4 +217,22 @@ function formatMessage(template, values) {
   return Object.entries(values).reduce((result, [key, value]) => {
     return result.replace(`{${key}}`, String(value));
   }, template);
+}
+
+function eventFallsAfter(eventTimestamp, fromValue) {
+  const eventDate = new Date(eventTimestamp);
+  const fromDate = new Date(fromValue);
+  if (Number.isNaN(eventDate.getTime()) || Number.isNaN(fromDate.getTime())) {
+    return true;
+  }
+  return eventDate.getTime() >= fromDate.getTime();
+}
+
+function eventFallsBefore(eventTimestamp, toValue) {
+  const eventDate = new Date(eventTimestamp);
+  const toDate = new Date(toValue);
+  if (Number.isNaN(eventDate.getTime()) || Number.isNaN(toDate.getTime())) {
+    return true;
+  }
+  return eventDate.getTime() <= toDate.getTime();
 }

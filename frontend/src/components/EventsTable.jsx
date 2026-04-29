@@ -1,8 +1,12 @@
+import { Fragment, useState } from "react";
+
 import StatusBadge from "./StatusBadge";
 import { formatDateTime, shortenText } from "../utils/formatters";
 
 // Tabular view of normalized backend events.
 export default function EventsTable({ events, sort, onSort, t }) {
+  const [expandedMessageIds, setExpandedMessageIds] = useState([]);
+
   function renderSortableHeader(label, key) {
     const isActive = sort.key === key;
     const direction = isActive ? sort.direction : "";
@@ -20,6 +24,14 @@ export default function EventsTable({ events, sort, onSort, t }) {
           </span>
         </button>
       </th>
+    );
+  }
+
+  function toggleMessage(eventId) {
+    setExpandedMessageIds((current) =>
+      current.includes(eventId)
+        ? current.filter((id) => id !== eventId)
+        : [...current, eventId],
     );
   }
 
@@ -42,23 +54,55 @@ export default function EventsTable({ events, sort, onSort, t }) {
           </tr>
         </thead>
         <tbody>
-          {events.map((event) => (
-            <tr key={event.id}>
-              <td>{formatDateTime(event.ts)}</td>
-              <td>{event.host || t("notAvailable")}</td>
-              <td>{event.host_ip || t("notAvailable")}</td>
-              <td>{event.os_type || t("notAvailable")}</td>
-              <td>{event.event_type || t("notAvailable")}</td>
-              <td>{event.event_code || t("notAvailable")}</td>
-              <td>{event.category || t("notAvailable")}</td>
-              <td>
-                <StatusBadge value={event.severity} />
-              </td>
-              <td>{event.username || t("notAvailable")}</td>
-              <td>{event.ip_address || t("notAvailable")}</td>
-              <td title={event.message}>{shortenText(event.message, 96)}</td>
-            </tr>
-          ))}
+          {events.map((event) => {
+            const isExpanded = expandedMessageIds.includes(event.id);
+            const isLongMessage = (event.message || "").length > 96;
+
+            return (
+              <Fragment key={event.id}>
+                <tr className={isExpanded ? "event-row expanded" : "event-row"}>
+                  <td>{formatDateTime(event.ts)}</td>
+                  <td>{event.host || t("notAvailable")}</td>
+                  <td>{event.host_ip || t("notAvailable")}</td>
+                  <td>{event.os_type || t("notAvailable")}</td>
+                  <td>{event.event_type || t("notAvailable")}</td>
+                  <td>{event.event_code || t("notAvailable")}</td>
+                  <td>{event.category || t("notAvailable")}</td>
+                  <td>
+                    <StatusBadge value={event.severity} />
+                  </td>
+                  <td>{event.username || t("notAvailable")}</td>
+                  <td>{event.ip_address || t("notAvailable")}</td>
+                  <td title={event.message}>
+                    <div className="event-message-cell">
+                      <span>{shortenText(event.message, 96)}</span>
+                      {isLongMessage ? (
+                        <button
+                          className="message-toggle-button"
+                          onClick={() => toggleMessage(event.id)}
+                          type="button"
+                        >
+                          {isExpanded ? t("hideMessage") : t("showAll")}
+                        </button>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+                {isExpanded ? (
+                  <tr className="event-full-message-row">
+                    <td colSpan={11}>
+                      <div className="event-full-message-panel">
+                        <p className="event-full-message-title">{t("tableMessage")}</p>
+                        <p className="event-full-message-text">
+                          {event.message || t("notAvailable")}
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : null}
+              </Fragment>
+            );
+          })}
         </tbody>
       </table>
     </div>

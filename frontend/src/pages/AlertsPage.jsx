@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import AlertsTable from "../components/AlertsTable";
 import FilterBar from "../components/FilterBar";
@@ -19,6 +19,10 @@ export default function AlertsPage({
   const PAGE_SIZE_OPTIONS = ["20", "50", "100", "all"];
   const [showRules, setShowRules] = useState(false);
   const [ruleSaveError, setRuleSaveError] = useState("");
+  const [ruleSaveSuccess, setRuleSaveSuccess] = useState("");
+  const [ruleSaveSuccessKind, setRuleSaveSuccessKind] = useState("");
+  const [failedLoginDraft, setFailedLoginDraft] = useState(null);
+  const [suspiciousProcessDraft, setSuspiciousProcessDraft] = useState(null);
   const [filters, setFilters] = useState({
     host: "",
     severity: "",
@@ -111,33 +115,52 @@ export default function AlertsPage({
     setPage(1);
   }
 
-  async function updateFailedLoginRuleField(key, value) {
-    if (!failedLoginRule || !onUpdateFailedLoginRule) {
+  useEffect(() => {
+    setFailedLoginDraft(failedLoginRule);
+  }, [failedLoginRule]);
+
+  useEffect(() => {
+    setSuspiciousProcessDraft(suspiciousProcessRule);
+  }, [suspiciousProcessRule]);
+
+  useEffect(() => {
+    if (!ruleSaveSuccess) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setRuleSaveSuccess("");
+      setRuleSaveSuccessKind("");
+    }, 3200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [ruleSaveSuccess]);
+
+  async function applyFailedLoginRule() {
+    if (!failedLoginDraft || !onUpdateFailedLoginRule) {
       return;
     }
 
     try {
       setRuleSaveError("");
-      await onUpdateFailedLoginRule({
-        ...failedLoginRule,
-        [key]: Number(value),
-      });
+      await onUpdateFailedLoginRule(failedLoginDraft);
+      setRuleSaveSuccess(t("alertRuleSaved"));
+      setRuleSaveSuccessKind("failed-login");
     } catch (updateError) {
       setRuleSaveError(updateError.message || t("alertRuleSaveError"));
     }
   }
 
-  async function updateSuspiciousProcessRuleField(key, value) {
-    if (!suspiciousProcessRule || !onUpdateSuspiciousProcessRule) {
+  async function applySuspiciousProcessRule() {
+    if (!suspiciousProcessDraft || !onUpdateSuspiciousProcessRule) {
       return;
     }
 
     try {
       setRuleSaveError("");
-      await onUpdateSuspiciousProcessRule({
-        ...suspiciousProcessRule,
-        [key]: Number(value),
-      });
+      await onUpdateSuspiciousProcessRule(suspiciousProcessDraft);
+      setRuleSaveSuccess(t("alertRuleSaved"));
+      setRuleSaveSuccessKind("suspicious-process");
     } catch (updateError) {
       setRuleSaveError(updateError.message || t("alertRuleSaveError"));
     }
@@ -173,85 +196,113 @@ export default function AlertsPage({
               <article className="rule-card" key={rule.title}>
                 <h4>{rule.title}</h4>
                 <p>{rule.body}</p>
-                {rule.kind === "failed-login" && failedLoginRule ? (
-                  <div className="rule-config-row">
-                    <label>
-                      <span>{t("alertRuleAttemptsLabel")}</span>
-                      <select
-                        value={String(failedLoginRule.failed_login_threshold)}
-                        onChange={(event) =>
-                          updateFailedLoginRuleField(
-                            "failed_login_threshold",
-                            event.target.value,
-                          )
-                        }
+                {rule.kind === "failed-login" && failedLoginDraft ? (
+                  <>
+                    <div className="rule-config-row">
+                      <label>
+                        <span>{t("alertRuleAttemptsLabel")}</span>
+                        <select
+                          value={String(failedLoginDraft.failed_login_threshold)}
+                          onChange={(event) =>
+                            setFailedLoginDraft((current) => ({
+                              ...current,
+                              failed_login_threshold: Number(event.target.value),
+                            }))
+                          }
+                        >
+                          {["3", "5", "7", "10"].map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        <span>{t("alertRuleMinutesLabel")}</span>
+                        <select
+                          value={String(failedLoginDraft.failed_login_window_minutes)}
+                          onChange={(event) =>
+                            setFailedLoginDraft((current) => ({
+                              ...current,
+                              failed_login_window_minutes: Number(event.target.value),
+                            }))
+                          }
+                        >
+                          {["1", "3", "5", "10", "15"].map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button
+                        className="rule-apply-button"
+                        onClick={applyFailedLoginRule}
+                        type="button"
                       >
-                        {["3", "5", "7", "10"].map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      <span>{t("alertRuleMinutesLabel")}</span>
-                      <select
-                        value={String(failedLoginRule.failed_login_window_minutes)}
-                        onChange={(event) =>
-                          updateFailedLoginRuleField(
-                            "failed_login_window_minutes",
-                            event.target.value,
-                          )
-                        }
-                      >
-                        {["1", "3", "5", "10", "15"].map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
+                        {t("apply")}
+                      </button>
+                    </div>
+                    {ruleSaveSuccess && ruleSaveSuccessKind === "failed-login" ? (
+                      <div className="state-panel success compact-state-panel inline-rule-state">
+                        {ruleSaveSuccess}
+                      </div>
+                    ) : null}
+                  </>
                 ) : null}
-                {rule.kind === "suspicious-process" && suspiciousProcessRule ? (
-                  <div className="rule-config-row">
-                    <label>
-                      <span>{t("alertRuleEventsLabel")}</span>
-                      <select
-                        value={String(suspiciousProcessRule.suspicious_process_threshold)}
-                        onChange={(event) =>
-                          updateSuspiciousProcessRuleField(
-                            "suspicious_process_threshold",
-                            event.target.value,
-                          )
-                        }
+                {rule.kind === "suspicious-process" && suspiciousProcessDraft ? (
+                  <>
+                    <div className="rule-config-row">
+                      <label>
+                        <span>{t("alertRuleEventsLabel")}</span>
+                        <select
+                          value={String(suspiciousProcessDraft.suspicious_process_threshold)}
+                          onChange={(event) =>
+                            setSuspiciousProcessDraft((current) => ({
+                              ...current,
+                              suspicious_process_threshold: Number(event.target.value),
+                            }))
+                          }
+                        >
+                          {["2", "3", "5", "7"].map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        <span>{t("alertRuleMinutesLabel")}</span>
+                        <select
+                          value={String(suspiciousProcessDraft.suspicious_process_window_minutes)}
+                          onChange={(event) =>
+                            setSuspiciousProcessDraft((current) => ({
+                              ...current,
+                              suspicious_process_window_minutes: Number(event.target.value),
+                            }))
+                          }
+                        >
+                          {["1", "3", "5", "10", "15"].map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button
+                        className="rule-apply-button"
+                        onClick={applySuspiciousProcessRule}
+                        type="button"
                       >
-                        {["2", "3", "5", "7"].map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      <span>{t("alertRuleMinutesLabel")}</span>
-                      <select
-                        value={String(suspiciousProcessRule.suspicious_process_window_minutes)}
-                        onChange={(event) =>
-                          updateSuspiciousProcessRuleField(
-                            "suspicious_process_window_minutes",
-                            event.target.value,
-                          )
-                        }
-                      >
-                        {["1", "3", "5", "10", "15"].map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
+                        {t("apply")}
+                      </button>
+                    </div>
+                    {ruleSaveSuccess && ruleSaveSuccessKind === "suspicious-process" ? (
+                      <div className="state-panel success compact-state-panel inline-rule-state">
+                        {ruleSaveSuccess}
+                      </div>
+                    ) : null}
+                  </>
                 ) : null}
               </article>
             ))}

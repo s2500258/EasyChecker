@@ -4,6 +4,8 @@ export default function FilterBar({
   onChange,
   options,
   showCategory = false,
+  showHostIp = false,
+  showTimeRange = false,
   t,
 }) {
   return (
@@ -32,6 +34,40 @@ export default function FilterBar({
           ))}
         </select>
       </label>
+
+      {showTimeRange ? (
+        <label>
+          {t("filterTimeFrom")}
+          <input
+            type="datetime-local"
+            value={filters.timeFrom}
+            onChange={(event) => onChange("timeFrom", event.target.value)}
+          />
+        </label>
+      ) : null}
+
+      {showTimeRange ? (
+        <label>
+          {t("filterTimeTo")}
+          <input
+            type="datetime-local"
+            value={filters.timeTo}
+            onChange={(event) => onChange("timeTo", event.target.value)}
+          />
+        </label>
+      ) : null}
+
+      {showHostIp ? (
+        <label>
+          {t("filterHostIp")}
+          <input
+            type="text"
+            value={filters.hostIp}
+            onChange={(event) => onChange("hostIp", event.target.value)}
+            placeholder={t("filterHostIpPlaceholder")}
+          />
+        </label>
+      ) : null}
 
       {showCategory ? (
         <label>
