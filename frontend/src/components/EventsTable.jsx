@@ -9,12 +9,12 @@ export default function EventsTable({ events, sort, onSort, t }) {
   // can stay open at once while the analyst compares them.
   const [expandedMessageIds, setExpandedMessageIds] = useState([]);
 
-  function renderSortableHeader(label, key) {
+  function renderSortableHeader(label, key, className = "") {
     const isActive = sort.key === key;
     const direction = isActive ? sort.direction : "";
 
     return (
-      <th>
+      <th className={className}>
         <button
           className={isActive ? "table-sort active" : "table-sort"}
           onClick={() => onSort(key)}
@@ -49,7 +49,7 @@ export default function EventsTable({ events, sort, onSort, t }) {
             {renderSortableHeader(t("tableHostIP"), "host_ip")}
             {renderSortableHeader(t("tableOS"), "os_type")}
             {renderSortableHeader(t("tableType"), "event_type")}
-            {renderSortableHeader(t("tableCode"), "event_code")}
+            {renderSortableHeader(t("tableCode"), "event_code", "event-code-column")}
             {renderSortableHeader(t("tableCategory"), "category")}
             {renderSortableHeader(t("tableSeverity"), "severity")}
             {renderSortableHeader(t("tableUser"), "username")}
@@ -73,7 +73,7 @@ export default function EventsTable({ events, sort, onSort, t }) {
                   <td>{event.host_ip || t("notAvailable")}</td>
                   <td>{event.os_type || t("notAvailable")}</td>
                   <td>{event.event_type || t("notAvailable")}</td>
-                  <td>{event.event_code || t("notAvailable")}</td>
+                  <td className="event-code-column">{event.event_code || t("notAvailable")}</td>
                   <td>{event.category || t("notAvailable")}</td>
                   <td>
                     <StatusBadge value={event.severity} />
