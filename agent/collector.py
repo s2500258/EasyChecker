@@ -46,6 +46,15 @@ CRITICAL_SERVICE_ALIASES = {
         "центр безопасности",
     ),
 }
+SERVICE_STATUS_CODES = {
+    "1": "stopped",
+    "2": "start_pending",
+    "3": "stop_pending",
+    "4": "running",
+    "5": "continue_pending",
+    "6": "pause_pending",
+    "7": "paused",
+}
 
 
 def collect_events() -> list[AgentEvent]:
@@ -399,6 +408,7 @@ def _normalize_service_change(
         service_name = raw_event["event_values"][0]
     if not state and len(raw_event["event_values"]) > 1:
         state = raw_event["event_values"][1]
+    normalized_state = _normalize_service_status(state)
 
     internal_name = _pick_first(raw_event["event_data"], ["ServiceNameInternal", "Name"])
     if not _service_matches_allowlist(
@@ -409,13 +419,16 @@ def _normalize_service_change(
         return None
 
     service_key = _classify_service_key(service_name)
-    is_stopped = _is_stopped_service_state(state=state, message=raw_event["message"])
+    is_stopped = _is_stopped_service_state(
+        state=normalized_state or state,
+        message=raw_event["message"],
+    )
     category = "service_stopped" if is_stopped else "service_state_change"
     severity = "HIGH" if category == "service_stopped" else "MEDIUM"
     default_message = (
         f"Service {service_name} stopped"
         if category == "service_stopped"
-        else f"Service {service_name} changed state to {state}"
+        else f"Service {service_name} changed state to {normalized_state or state}"
     )
 
     return AgentEvent(
@@ -438,7 +451,7 @@ def _normalize_service_change(
             "service_name": service_name,
             "service_internal_name": internal_name,
             "service_key": service_key,
-            "state": state,
+            "state": normalized_state or state,
         },
     )
 
@@ -738,12 +751,16 @@ def _read_windows_services() -> dict[str, dict[str, str]]:
         "powershell",
         "-NoProfile",
         "-Command",
-        "Get-Service | Select-Object Name,DisplayName,Status | ConvertTo-Json -Compress",
+        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; "
+        "Get-Service | Select-Object Name,DisplayName,"
+        "@{Name='StatusText';Expression={$_.Status.ToString()}} | ConvertTo-Json -Compress",
     ]
     result = subprocess.run(
         command,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     if result.returncode != 0:
@@ -777,7 +794,7 @@ def _read_windows_services() -> dict[str, dict[str, str]]:
             continue
         services[internal_name] = {
             "display_name": str(row.get("DisplayName") or internal_name).strip(),
-            "status": str(row.get("Status") or "").strip(),
+            "status": str(row.get("StatusText") or row.get("Status") or "").strip(),
         }
     return services
 
@@ -785,7 +802,8 @@ def _read_windows_services() -> dict[str, dict[str, str]]:
 def _normalize_service_status(value: Optional[str]) -> str:
     if not value:
         return ""
-    return value.strip().lower().replace(" ", "_")
+    text = value.strip().lower().replace(" ", "_")
+    return SERVICE_STATUS_CODES.get(text, text)
 
 
 def _evt_close(win32evtlog, handle) -> None:

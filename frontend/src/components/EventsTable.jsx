@@ -60,7 +60,10 @@ export default function EventsTable({ events, sort, onSort, t }) {
         <tbody>
           {events.map((event) => {
             const isExpanded = expandedMessageIds.includes(event.id);
-            const isLongMessage = (event.message || "").length > 96;
+            // Let analysts expand any real message, not only very long ones.
+            // Service-state messages are often short but still easier to read
+            // in the dedicated full-width panel.
+            const canExpandMessage = Boolean((event.message || "").trim());
 
             return (
               <Fragment key={event.id}>
@@ -80,7 +83,7 @@ export default function EventsTable({ events, sort, onSort, t }) {
                   <td title={event.message}>
                     <div className="event-message-cell">
                       <span>{shortenText(event.message, 96)}</span>
-                      {isLongMessage ? (
+                      {canExpandMessage ? (
                         <button
                           className="message-toggle-button"
                           onClick={() => toggleMessage(event.id)}
