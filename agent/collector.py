@@ -1,4 +1,5 @@
 import json
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -45,6 +46,15 @@ CRITICAL_SERVICE_ALIASES = {
         "центр безопасности",
     ),
 }
+SERVICE_STATUS_CODES = {
+    "1": "stopped",
+    "2": "start_pending",
+    "3": "stop_pending",
+    "4": "running",
+    "5": "continue_pending",
+    "6": "pause_pending",
+    "7": "paused",
+}
 
 
 def collect_events() -> list[AgentEvent]:
@@ -79,10 +89,13 @@ def get_state_file_path() -> Path:
 
 def collect_windows_events() -> list[AgentEvent]:
     settings = get_settings()
-    # Persisted record IDs let the agent continue from the last processed event
-    # for each Windows channel. Without this state, every polling cycle would
-    # re-read old records and send duplicate events to the backend.
+    # Persisted state serves two purposes:
+    # 1. record IDs keep Event Log reads incremental
+    # 2. service snapshots let us detect live service stop/start transitions
+    #    even when Windows does not emit a usable 7036 event in practice.
     state = _load_state()
+    channel_state = _get_channel_state(state)
+    previous_service_snapshot = _get_service_snapshot_state(state)
 
     try:
         import win32evtlog  # type: ignore
@@ -104,14 +117,14 @@ def collect_windows_events() -> list[AgentEvent]:
                         win32evtlog=win32evtlog,
                         channel=channel,
                         event_ids=event_ids,
-                        last_record_id=state.get(channel, 0),
+                        last_record_id=channel_state.get(channel, 0),
                     )
                 )
             except Exception as exc:
                 print(f"Windows collector could not read channel {channel}: {exc}")
 
         normalized_events = []
-        latest_record_ids = dict(state)
+        latest_record_ids = dict(channel_state)
 
         # Sort before normalization so events are sent in a predictable order.
         # We query newest-first for efficiency, but for downstream processing
@@ -127,12 +140,25 @@ def collect_windows_events() -> list[AgentEvent]:
                 latest_record_ids.get(raw_event["channel"], 0), raw_event["record_id"]
             )
 
-        if latest_record_ids != state:
-            # Save state only after successful normalization so the next cycle
-            # starts after the newest event we have actually accepted.
-            _save_state(latest_record_ids)
+        # Snapshot-based service detection covers the real-world gap where some
+        # Windows machines do not surface a service stop as a usable 7036 event.
+        service_events, current_service_snapshot = _collect_service_snapshot_events(
+            previous_snapshot=previous_service_snapshot,
+            settings=settings,
+        )
+        normalized_events.extend(service_events)
+
+        next_state = {
+            "channel_record_ids": latest_record_ids,
+            "service_snapshot": current_service_snapshot,
+        }
+        if next_state != state:
+            # Save state only after the cycle succeeds so the next run starts
+            # from the same Event Log position and service-state baseline.
+            _save_state(next_state)
 
         if normalized_events:
+            normalized_events.sort(key=lambda item: item.ts)
             return normalized_events
         print("Windows collector found no usable live events in this cycle.")
         return []
@@ -382,18 +408,27 @@ def _normalize_service_change(
         service_name = raw_event["event_values"][0]
     if not state and len(raw_event["event_values"]) > 1:
         state = raw_event["event_values"][1]
+    normalized_state = _normalize_service_status(state)
 
-    if not _matches_allowlist(service_name, settings.service_name_allowlist):
+    internal_name = _pick_first(raw_event["event_data"], ["ServiceNameInternal", "Name"])
+    if not _service_matches_allowlist(
+        display_name=service_name,
+        internal_name=internal_name,
+        allowlist=settings.service_name_allowlist,
+    ):
         return None
 
     service_key = _classify_service_key(service_name)
-    is_stopped = _is_stopped_service_state(state=state, message=raw_event["message"])
+    is_stopped = _is_stopped_service_state(
+        state=normalized_state or state,
+        message=raw_event["message"],
+    )
     category = "service_stopped" if is_stopped else "service_state_change"
     severity = "HIGH" if category == "service_stopped" else "MEDIUM"
     default_message = (
         f"Service {service_name} stopped"
         if category == "service_stopped"
-        else f"Service {service_name} changed state to {state}"
+        else f"Service {service_name} changed state to {normalized_state or state}"
     )
 
     return AgentEvent(
@@ -414,8 +449,9 @@ def _normalize_service_change(
             "channel": raw_event["channel"],
             "record_id": raw_event["record_id"],
             "service_name": service_name,
+            "service_internal_name": internal_name,
             "service_key": service_key,
-            "state": state,
+            "state": normalized_state or state,
         },
     )
 
@@ -438,7 +474,12 @@ def _event_is_enabled(event: AgentEvent, settings: Settings) -> bool:
         if not settings.collect_service_events:
             return False
         service_name = (event.raw_data or {}).get("service_name")
-        return _matches_allowlist(service_name, settings.service_name_allowlist)
+        internal_name = (event.raw_data or {}).get("service_internal_name")
+        return _service_matches_allowlist(
+            display_name=service_name,
+            internal_name=internal_name,
+            allowlist=settings.service_name_allowlist,
+        )
     return True
 
 
@@ -450,6 +491,18 @@ def _matches_allowlist(value: Optional[str], allowlist: list[str]) -> bool:
     if not value:
         return False
     return value.strip().lower() in allowlist
+
+
+def _service_matches_allowlist(
+    *, display_name: Optional[str], internal_name: Optional[str], allowlist: list[str]
+) -> bool:
+    # Services are often referred to by either display name (`Print Spooler`)
+    # or internal name (`Spooler`), so accept both forms when filtering.
+    if not allowlist:
+        return True
+    return _matches_allowlist(display_name, allowlist) or _matches_allowlist(
+        internal_name, allowlist
+    )
 
 
 def _is_stopped_service_state(*, state: Optional[str], message: Optional[str]) -> bool:
@@ -478,7 +531,13 @@ def _classify_service_key(service_name: Optional[str]) -> Optional[str]:
 def _normalize_text_for_matching(value: Optional[str]) -> str:
     if not value:
         return ""
-    return value.strip().lower().replace("ä", "a").replace("ö", "o")
+    return (
+        value.strip()
+        .lower()
+        .replace("ä", "a")
+        .replace("ö", "o")
+        .replace("å", "a")
+    )
 
 
 def _format_event_message(
@@ -555,13 +614,10 @@ def _find_attr(parent, path: str, attr_name: str) -> Optional[str]:
     return value.strip()
 
 
-def _load_state() -> dict[str, int]:
-    # State is intentionally tiny: just the latest processed record ID per channel.
-    # Example:
-    # {
-    #   "Security": 105432,
-    #   "System": 81221
-    # }
+def _load_state() -> dict[str, Any]:
+    # Collector state is kept small and JSON-friendly.
+    # Newer versions store both Event Log positions and service snapshots, while
+    # older versions stored only `{channel: record_id}`. Both formats are accepted.
     state_file = get_state_file_path()
     if not state_file.exists():
         return {}
@@ -569,14 +625,185 @@ def _load_state() -> dict[str, int]:
         data = json.loads(state_file.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
-    return {str(key): int(value) for key, value in data.items()}
+    if isinstance(data, dict) and all(isinstance(value, int) for value in data.values()):
+        return {"channel_record_ids": {str(key): int(value) for key, value in data.items()}}
+    return data if isinstance(data, dict) else {}
 
 
-def _save_state(state: dict[str, int]) -> None:
+def _save_state(state: dict[str, Any]) -> None:
     # Store state on disk so the next agent process continues where the previous
     # one stopped, even after a restart or machine reboot.
     state_file = get_state_file_path()
     state_file.write_text(json.dumps(state, indent=2), encoding="utf-8")
+
+
+def _get_channel_state(state: dict[str, Any]) -> dict[str, int]:
+    channel_state = state.get("channel_record_ids", {})
+    if not isinstance(channel_state, dict):
+        return {}
+    return {
+        str(key): int(value)
+        for key, value in channel_state.items()
+        if isinstance(value, int) or str(value).isdigit()
+    }
+
+
+def _get_service_snapshot_state(
+    state: dict[str, Any],
+) -> dict[str, dict[str, str]]:
+    snapshot = state.get("service_snapshot", {})
+    if not isinstance(snapshot, dict):
+        return {}
+
+    normalized_snapshot = {}
+    for service_name, item in snapshot.items():
+        if not isinstance(item, dict):
+            continue
+        normalized_snapshot[str(service_name)] = {
+            "display_name": str(item.get("display_name") or service_name),
+            "status": str(item.get("status") or ""),
+        }
+    return normalized_snapshot
+
+
+def _collect_service_snapshot_events(
+    *, previous_snapshot: dict[str, dict[str, str]], settings: Settings
+) -> tuple[list[AgentEvent], dict[str, dict[str, str]]]:
+    # Compare the current service table with the previous poll snapshot to
+    # detect real live service transitions independently from Event Log quirks.
+    current_snapshot = _read_windows_services()
+    if not current_snapshot:
+        return [], previous_snapshot
+    if not previous_snapshot:
+        # Prime the baseline on the first successful cycle without generating
+        # synthetic events for pre-existing service states.
+        return [], current_snapshot
+
+    service_events = []
+    change_timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    for internal_name, current in current_snapshot.items():
+        previous = previous_snapshot.get(internal_name)
+        if not previous:
+            continue
+
+        previous_status = _normalize_service_status(previous.get("status"))
+        current_status = _normalize_service_status(current.get("status"))
+        if not previous_status or previous_status == current_status:
+            continue
+
+        display_name = current.get("display_name") or internal_name
+        if not _service_matches_allowlist(
+            display_name=display_name,
+            internal_name=internal_name,
+            allowlist=settings.service_name_allowlist,
+        ):
+            continue
+
+        service_key = _classify_service_key(display_name)
+        is_stop_transition = (
+            previous_status in {"running", "start_pending", "continue_pending"}
+            and current_status in {"stopped", "stop_pending"}
+        )
+        category = "service_stopped" if is_stop_transition else "service_state_change"
+        severity = "HIGH" if category == "service_stopped" else "MEDIUM"
+        message = (
+            f"Service {display_name} stopped"
+            if category == "service_stopped"
+            else f"Service {display_name} changed state from {previous_status} to {current_status}"
+        )
+
+        service_events.append(
+            AgentEvent(
+                ts=change_timestamp,
+                host=settings.hostname,
+                host_ip=settings.host_ip,
+                os_type="windows",
+                event_type="system",
+                event_code="SERVICE_STATE_POLL",
+                category=category,
+                severity=severity,
+                username=None,
+                ip_address=None,
+                message=message,
+                source="windows_service_snapshot",
+                raw_data={
+                    "provider": "Service Control Manager",
+                    "channel": "service_snapshot",
+                    "record_id": None,
+                    "service_name": display_name,
+                    "service_internal_name": internal_name,
+                    "service_key": service_key,
+                    "state": current_status,
+                    "previous_state": previous_status,
+                    "detection_method": "service_snapshot",
+                },
+            )
+        )
+
+    return service_events, current_snapshot
+
+
+def _read_windows_services() -> dict[str, dict[str, str]]:
+    # PowerShell gives us stable access to display name and status without
+    # adding another Python dependency beyond the Windows runtime itself.
+    command = [
+        "powershell",
+        "-NoProfile",
+        "-Command",
+        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; "
+        "Get-Service | Select-Object Name,DisplayName,"
+        "@{Name='StatusText';Expression={$_.Status.ToString()}} | ConvertTo-Json -Compress",
+    ]
+    result = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if result.returncode != 0:
+        print(
+            "Windows collector could not snapshot services: "
+            f"{result.stderr.strip() or result.stdout.strip()}"
+        )
+        return {}
+
+    payload = result.stdout.strip()
+    if not payload:
+        return {}
+
+    try:
+        rows = json.loads(payload)
+    except json.JSONDecodeError:
+        print("Windows collector could not parse service snapshot JSON.")
+        return {}
+
+    if isinstance(rows, dict):
+        rows = [rows]
+    if not isinstance(rows, list):
+        return {}
+
+    services = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        internal_name = str(row.get("Name") or "").strip()
+        if not internal_name:
+            continue
+        services[internal_name] = {
+            "display_name": str(row.get("DisplayName") or internal_name).strip(),
+            "status": str(row.get("StatusText") or row.get("Status") or "").strip(),
+        }
+    return services
+
+
+def _normalize_service_status(value: Optional[str]) -> str:
+    if not value:
+        return ""
+    text = value.strip().lower().replace(" ", "_")
+    return SERVICE_STATUS_CODES.get(text, text)
 
 
 def _evt_close(win32evtlog, handle) -> None:
