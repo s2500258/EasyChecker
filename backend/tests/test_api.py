@@ -144,6 +144,24 @@ def _localized_critical_service_payload() -> dict:
     return payload
 
 
+def _snapshot_critical_service_payload() -> dict:
+    payload = _critical_service_payload()
+    payload["host"] = "WIN-LIVE-05"
+    payload["host_ip"] = "192.168.5.105"
+    payload["event_code"] = "SERVICE_STATE_POLL"
+    payload["source"] = "windows_service_snapshot"
+    payload["raw_data"] = {
+        "provider": "Service Control Manager",
+        "service_name": "Windows Defender",
+        "service_internal_name": "WinDefend",
+        "service_key": "windows_defender",
+        "state": "stopped",
+        "previous_state": "running",
+        "detection_method": "service_snapshot",
+    }
+    return payload
+
+
 def test_ingest_events_and_generate_one_alert() -> None:
     # End-to-end test for ingest, storage, listing, and alert generation.
     _reset_database()
@@ -320,6 +338,24 @@ def test_ingest_generates_service_alert_for_localized_service_data() -> None:
         alert for alert in alerts if alert["type"] == "Critical service stopped"
     )
     assert len(localized_service_alert["event_ids"]) == 1
+
+
+def test_ingest_generates_service_alert_for_snapshot_based_service_stop() -> None:
+    _reset_database()
+
+    with TestClient(app) as client:
+        response = client.post("/api/v1/ingest", json=_snapshot_critical_service_payload())
+        assert response.status_code == 200
+
+        alerts_response = client.get("/api/v1/alerts")
+
+    alerts = alerts_response.json()
+
+    snapshot_service_alert = next(
+        alert for alert in alerts if alert["type"] == "Critical service stopped"
+    )
+    assert snapshot_service_alert["host"] == "WIN-LIVE-05"
+    assert len(snapshot_service_alert["event_ids"]) == 1
 
 
 def test_hosts_endpoint_returns_aggregated_host_summaries() -> None:
