@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -755,14 +756,19 @@ def _read_windows_services() -> dict[str, dict[str, str]]:
         "Get-Service | Select-Object Name,DisplayName,"
         "@{Name='StatusText';Expression={$_.Status.ToString()}} | ConvertTo-Json -Compress",
     ]
-    result = subprocess.run(
-        command,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-    )
+    run_kwargs = {
+        "capture_output": True,
+        "text": True,
+        "encoding": "utf-8",
+        "errors": "replace",
+        "check": False,
+    }
+    if os.name == "nt":
+        # Prevent transient PowerShell console windows from flashing when the
+        # agent runs as a windowed executable on Windows.
+        run_kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+    result = subprocess.run(command, **run_kwargs)
     if result.returncode != 0:
         print(
             "Windows collector could not snapshot services: "
