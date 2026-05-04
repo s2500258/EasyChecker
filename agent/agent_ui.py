@@ -194,8 +194,8 @@ class AgentUI:
         # Size the window to the actual content height so it ends right after
         # the control buttons / tray hint, then disable manual resizing.
         self.root.update_idletasks()
-        width = max(540, self.root.winfo_reqwidth() - 20)
-        height = max(200, self.root.winfo_reqheight() - 20)
+        width = max(520, self.root.winfo_reqwidth() - 40)
+        height = max(180, self.root.winfo_reqheight() - 40)
         self.root.geometry(f"{width}x{height}")
         self.root.resizable(False, False)
 
