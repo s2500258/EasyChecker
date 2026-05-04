@@ -36,8 +36,6 @@ class AgentUI:
         )
         self.root = tk.Tk()
         self.root.title("EasyChecker Agent")
-        self.root.geometry("560x420")
-        self.root.minsize(520, 390)
         self.root.protocol("WM_DELETE_WINDOW", self.minimize_to_tray)
 
         self.status_text = tk.StringVar(value="Starting")
@@ -52,6 +50,7 @@ class AgentUI:
         self._tray_thread: Optional[Thread] = None
 
         self._build_ui()
+        self._lock_window_size()
 
     def start(self) -> None:
         self.worker_thread.start()
@@ -130,6 +129,15 @@ class AgentUI:
             wraplength=500,
         )
         tray_hint.pack(anchor="w", pady=(10, 0))
+
+    def _lock_window_size(self) -> None:
+        # Size the window to the actual content height so it ends right after
+        # the control buttons / tray hint, then disable manual resizing.
+        self.root.update_idletasks()
+        width = max(560, self.root.winfo_reqwidth())
+        height = self.root.winfo_reqheight()
+        self.root.geometry(f"{width}x{height}")
+        self.root.resizable(False, False)
 
     def _add_kv_row(
         self, parent: ttk.LabelFrame, label: str, variable: tk.StringVar, row: int
