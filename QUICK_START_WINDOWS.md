@@ -149,7 +149,7 @@ python -m venv .venv
 copy .env.example .env
 .\.venv\Scripts\python -m pip install pyinstaller
 .\.venv\Scripts\python generate_exe_icon.py
-.\.venv\Scripts\python -m PyInstaller --onefile --windowed --icon logo1.ico --name easychecker-agent-ui agent_ui.py
+.\.venv\Scripts\python -m PyInstaller --onefile --windowed --icon logo1.ico --add-data "logo1.ico;." --add-data "..\logo1.png;." --name easychecker-agent-ui agent_ui.py
 ```
 
 Then edit `agent\.env` and make sure it contains the correct backend address and agent settings, for example:

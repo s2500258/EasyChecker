@@ -1,6 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 from threading import Event, Thread
+import sys
 import tkinter as tk
 from tkinter import ttk
 from typing import Optional
@@ -200,11 +201,21 @@ class AgentUI:
         self.root.resizable(False, False)
 
     def _apply_window_icon(self) -> None:
-        icon_path = _find_logo_path()
-        if icon_path is None:
+        ico_path = _find_logo_ico_path()
+        if ico_path is not None:
+            try:
+                # Windows title-bar icons are most reliable when applied from
+                # a real .ico file via iconbitmap instead of iconphoto.
+                self.root.iconbitmap(default=str(ico_path))
+                return
+            except tk.TclError:
+                pass
+
+        png_path = _find_logo_png_path()
+        if png_path is None:
             return
         try:
-            self._window_icon_image = tk.PhotoImage(file=str(icon_path))
+            self._window_icon_image = tk.PhotoImage(file=str(png_path))
             self.root.iconphoto(True, self._window_icon_image)
         except tk.TclError:
             self._window_icon_image = None
@@ -394,10 +405,13 @@ class AgentUI:
 def _load_tray_icon_image():
     # Reuse the same project logo for the tray icon and the window icon so the
     # Windows agent keeps one consistent visual identity.
-    logo_path = _find_logo_path()
+    logo_path = _find_logo_png_path() or _find_logo_ico_path()
     if logo_path is not None:
         try:
-            return Image.open(logo_path)
+            with Image.open(logo_path) as image:
+                tray_image = image.convert("RGBA")
+                tray_image.load()
+                return tray_image.copy()
         except OSError:
             pass
 
@@ -408,11 +422,28 @@ def _load_tray_icon_image():
     return image
 
 
-def _find_logo_path() -> Optional[Path]:
-    candidates = [
-        Path(__file__).resolve().parent.parent / "logo1.png",
-        Path(__file__).resolve().parent / "logo1.png",
-    ]
+def _find_logo_png_path() -> Optional[Path]:
+    return _find_asset_path("logo1.png")
+
+
+def _find_logo_ico_path() -> Optional[Path]:
+    return _find_asset_path("logo1.ico")
+
+
+def _find_asset_path(filename: str) -> Optional[Path]:
+    candidates = []
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        candidates.append(Path(meipass) / filename)
+
+    current_dir = Path(__file__).resolve().parent
+    candidates.extend(
+        [
+            current_dir / filename,
+            current_dir.parent / filename,
+        ]
+    )
+
     for candidate in candidates:
         if candidate.exists():
             return candidate
