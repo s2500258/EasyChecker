@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Optional
 
-from config import get_settings
+from config import get_env_file_path, get_settings
 from runner import run_agent_loop
 from runtime_state import AgentRuntimeSnapshot, AgentRuntimeState
 
@@ -25,15 +25,7 @@ class AgentUI:
         self.settings = get_settings()
         self.state = AgentRuntimeState()
         self.stop_event = Event()
-        self.worker_thread = Thread(
-            target=run_agent_loop,
-            kwargs={
-                "state": self.state,
-                "stop_event": self.stop_event,
-                "log": self._log_status,
-            },
-            daemon=True,
-        )
+        self.worker_thread: Optional[Thread] = None
         self.root = tk.Tk()
         self.root.title("EasyChecker Agent")
         self.root.protocol("WM_DELETE_WINDOW", self.minimize_to_tray)
@@ -45,6 +37,25 @@ class AgentUI:
         self.last_error_text = tk.StringVar(value="None")
         self.last_event_summary_text = tk.StringVar(value="N/A")
         self.tray_hint_text = tk.StringVar(value="")
+        self.settings_save_text = tk.StringVar(value="")
+
+        self.backend_url_edit = tk.StringVar(value=self.settings.backend_url)
+        self.poll_interval_edit = tk.StringVar(value=str(self.settings.poll_interval))
+        self.collect_logins_edit = tk.BooleanVar(value=self.settings.collect_login_events)
+        self.collect_processes_edit = tk.BooleanVar(
+            value=self.settings.collect_process_events
+        )
+        self.collect_services_edit = tk.BooleanVar(
+            value=self.settings.collect_service_events
+        )
+        self.run_once_text = tk.StringVar(value=str(self.settings.run_once))
+        self.host_ip_text = tk.StringVar(value=self.settings.host_ip or "N/A")
+        self.process_allowlist_text = tk.StringVar(
+            value=", ".join(self.settings.process_name_allowlist) or "all"
+        )
+        self.service_allowlist_text = tk.StringVar(
+            value=", ".join(self.settings.service_name_allowlist) or "all"
+        )
 
         self._tray_icon: Optional["pystray.Icon"] = None
         self._tray_thread: Optional[Thread] = None
@@ -53,7 +64,7 @@ class AgentUI:
         self._lock_window_size()
 
     def start(self) -> None:
-        self.worker_thread.start()
+        self._start_worker()
         self._refresh_ui()
         self.root.mainloop()
 
@@ -87,40 +98,83 @@ class AgentUI:
 
         settings_frame = ttk.LabelFrame(container, text="Active Settings", padding=12)
         settings_frame.pack(fill="x", pady=(14, 0))
-        settings_items = [
-            ("Backend URL", self.settings.backend_url),
-            ("Event source", self.settings.event_source),
-            ("Poll interval", f"{self.settings.poll_interval}s"),
-            ("Run once", str(self.settings.run_once)),
-            ("Host", self.settings.hostname),
-            ("Host IP", self.settings.host_ip or "N/A"),
-            ("Collect logins", str(self.settings.collect_login_events)),
-            ("Collect processes", str(self.settings.collect_process_events)),
-            ("Collect services", str(self.settings.collect_service_events)),
-            (
-                "Process allowlist",
-                ", ".join(self.settings.process_name_allowlist) or "all",
-            ),
-            (
-                "Service allowlist",
-                ", ".join(self.settings.service_name_allowlist) or "all",
-            ),
-        ]
-        for row_index, (label, value) in enumerate(settings_items):
-            self._add_static_row(settings_frame, label, value, row_index)
+        self._add_entry_row(
+            settings_frame,
+            "Backend URL",
+            self.backend_url_edit,
+            0,
+            width=42,
+        )
+        self._add_entry_row(
+            settings_frame,
+            "Poll interval (s)",
+            self.poll_interval_edit,
+            1,
+            width=8,
+        )
+        self._add_checkbox_row(
+            settings_frame,
+            "Collect logins",
+            self.collect_logins_edit,
+            2,
+        )
+        self._add_checkbox_row(
+            settings_frame,
+            "Collect processes",
+            self.collect_processes_edit,
+            3,
+        )
+        self._add_checkbox_row(
+            settings_frame,
+            "Collect services",
+            self.collect_services_edit,
+            4,
+        )
+        self._add_kv_row(settings_frame, "Run once", self.run_once_text, 5)
+        self._add_kv_row(settings_frame, "Host IP", self.host_ip_text, 6)
+        self._add_kv_row(
+            settings_frame,
+            "Process allowlist",
+            self.process_allowlist_text,
+            7,
+        )
+        self._add_kv_row(
+            settings_frame,
+            "Service allowlist",
+            self.service_allowlist_text,
+            8,
+        )
 
         controls_frame = ttk.Frame(container, padding=(0, 14, 0, 0))
         controls_frame.pack(fill="x")
         ttk.Button(
             controls_frame,
+            text="Save settings",
+            command=self.save_settings,
+        ).pack(side="left")
+        ttk.Button(
+            controls_frame,
+            text="Restart agent",
+            command=self.restart_agent,
+        ).pack(side="left", padx=(10, 0))
+        ttk.Button(
+            controls_frame,
             text="Minimize to tray",
             command=self.minimize_to_tray,
-        ).pack(side="left")
+        ).pack(side="left", padx=(10, 0))
         ttk.Button(
             controls_frame,
             text="Exit agent",
             command=self.exit_agent,
         ).pack(side="left", padx=(10, 0))
+
+        settings_hint = ttk.Label(
+            container,
+            textvariable=self.settings_save_text,
+            foreground="#68aeb8",
+            wraplength=500,
+        )
+        settings_hint.pack(anchor="w", pady=(10, 0))
 
         tray_hint = ttk.Label(
             container,
@@ -128,7 +182,7 @@ class AgentUI:
             foreground="#68aeb8",
             wraplength=500,
         )
-        tray_hint.pack(anchor="w", pady=(10, 0))
+        tray_hint.pack(anchor="w", pady=(6, 0))
 
     def _lock_window_size(self) -> None:
         # Size the window to the actual content height so it ends right after
@@ -159,6 +213,36 @@ class AgentUI:
             row=row, column=1, sticky="nw", pady=2
         )
 
+    def _add_entry_row(
+        self,
+        parent: ttk.LabelFrame,
+        label: str,
+        variable: tk.StringVar,
+        row: int,
+        *,
+        width: int,
+    ) -> None:
+        ttk.Label(parent, text=f"{label}:").grid(
+            row=row, column=0, sticky="nw", padx=(0, 14), pady=2
+        )
+        ttk.Entry(parent, textvariable=variable, width=width).grid(
+            row=row, column=1, sticky="nw", pady=2
+        )
+
+    def _add_checkbox_row(
+        self,
+        parent: ttk.LabelFrame,
+        label: str,
+        variable: tk.BooleanVar,
+        row: int,
+    ) -> None:
+        ttk.Label(parent, text=f"{label}:").grid(
+            row=row, column=0, sticky="nw", padx=(0, 14), pady=2
+        )
+        ttk.Checkbutton(parent, variable=variable).grid(
+            row=row, column=1, sticky="nw", pady=2
+        )
+
     def _refresh_ui(self) -> None:
         snapshot = self.state.snapshot()
         self._apply_snapshot(snapshot)
@@ -177,6 +261,71 @@ class AgentUI:
         # feeding only meaningful status text back into the shared state.
         if message.startswith("Agent cycle failed: "):
             self.state.mark_error(message.removeprefix("Agent cycle failed: "))
+
+    def _start_worker(self) -> None:
+        self.stop_event = Event()
+        self.worker_thread = Thread(
+            target=run_agent_loop,
+            kwargs={
+                "state": self.state,
+                "stop_event": self.stop_event,
+                "log": self._log_status,
+            },
+            daemon=True,
+        )
+        self.worker_thread.start()
+
+    def _stop_worker(self) -> None:
+        self.stop_event.set()
+        if self.worker_thread is not None:
+            self.worker_thread.join(timeout=3)
+            self.worker_thread = None
+
+    def _reload_settings(self) -> None:
+        get_settings.cache_clear()
+        self.settings = get_settings()
+        self.backend_url_edit.set(self.settings.backend_url)
+        self.poll_interval_edit.set(str(self.settings.poll_interval))
+        self.collect_logins_edit.set(self.settings.collect_login_events)
+        self.collect_processes_edit.set(self.settings.collect_process_events)
+        self.collect_services_edit.set(self.settings.collect_service_events)
+        self.run_once_text.set(str(self.settings.run_once))
+        self.host_ip_text.set(self.settings.host_ip or "N/A")
+        self.process_allowlist_text.set(
+            ", ".join(self.settings.process_name_allowlist) or "all"
+        )
+        self.service_allowlist_text.set(
+            ", ".join(self.settings.service_name_allowlist) or "all"
+        )
+
+    def save_settings(self) -> None:
+        poll_interval_text = self.poll_interval_edit.get().strip()
+        if not poll_interval_text.isdigit() or int(poll_interval_text) <= 0:
+            self.settings_save_text.set(
+                "Poll interval must be a positive whole number. Changes were not saved."
+            )
+            return
+
+        updates = {
+            "BACKEND_URL": self.backend_url_edit.get().strip(),
+            "POLL_INTERVAL": poll_interval_text,
+            "COLLECT_LOGIN_EVENTS": str(self.collect_logins_edit.get()).lower(),
+            "COLLECT_PROCESS_EVENTS": str(self.collect_processes_edit.get()).lower(),
+            "COLLECT_SERVICE_EVENTS": str(self.collect_services_edit.get()).lower(),
+        }
+        _save_env_updates(updates)
+        self.settings_save_text.set(
+            "Settings saved to .env. Restart the agent to apply them to the running worker."
+        )
+
+    def restart_agent(self) -> None:
+        self.settings_save_text.set("Restarting agent with current .env settings...")
+        self._stop_worker()
+        self.state = AgentRuntimeState()
+        self._reload_settings()
+        self._apply_snapshot(self.state.snapshot())
+        self._start_worker()
+        self.settings_save_text.set("Agent restarted with the latest saved settings.")
 
     def minimize_to_tray(self) -> None:
         if pystray is None or Image is None or ImageDraw is None:
@@ -215,7 +364,7 @@ class AgentUI:
         self.root.focus_force()
 
     def exit_agent(self) -> None:
-        self.stop_event.set()
+        self._stop_worker()
         if self._tray_icon is not None:
             self._tray_icon.stop()
             self._tray_icon = None
@@ -230,6 +379,36 @@ def _build_tray_icon_image():
     draw.rounded_rectangle((6, 6, 58, 58), radius=12, fill=(18, 78, 88, 255))
     draw.text((18, 19), "EC", fill=(230, 250, 252, 255))
     return image
+
+
+def _save_env_updates(updates: dict[str, str]) -> None:
+    # Update only the targeted keys while preserving the rest of the existing
+    # .env file content and comments as much as possible.
+    env_path = get_env_file_path()
+    existing_lines = []
+    if env_path.exists():
+        existing_lines = env_path.read_text(encoding="utf-8").splitlines()
+
+    remaining = dict(updates)
+    output_lines = []
+
+    for line in existing_lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in line:
+            output_lines.append(line)
+            continue
+
+        key, _value = line.split("=", 1)
+        normalized_key = key.strip()
+        if normalized_key in remaining:
+            output_lines.append(f"{normalized_key}={remaining.pop(normalized_key)}")
+        else:
+            output_lines.append(line)
+
+    for key, value in remaining.items():
+        output_lines.append(f"{key}={value}")
+
+    env_path.write_text("\n".join(output_lines) + "\n", encoding="utf-8")
 
 
 def main() -> None:
