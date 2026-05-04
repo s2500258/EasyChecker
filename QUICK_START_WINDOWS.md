@@ -125,6 +125,56 @@ Then run:
 .\.venv\Scripts\python agent.py
 ```
 
+If you want the new agent status window with:
+
+- start time
+- sent events counter
+- current settings
+- minimize-to-tray button
+
+run this instead:
+
+```powershell
+.\.venv\Scripts\python agent_ui.py
+```
+
+## 4a. Build the agent as a Windows `.exe`
+
+If you want a windowed `.exe` for the new agent control window, run this full sequence:
+
+```powershell
+cd agent
+python -m venv .venv
+.\.venv\Scripts\python -m pip install -r requirements.txt
+copy .env.example .env
+.\.venv\Scripts\python -m pip install pyinstaller
+.\.venv\Scripts\python generate_exe_icon.py
+.\.venv\Scripts\python -m PyInstaller --onefile --windowed --icon logo1.ico --add-data "logo1.ico;." --add-data "..\logo1.png;." --name easychecker-agent-ui agent_ui.py
+```
+
+Then edit `agent\.env` and make sure it contains the correct backend address and agent settings, for example:
+
+```env
+BACKEND_URL=http://127.0.0.1:8000/api/v1/ingest
+EVENT_SOURCE=sample
+RUN_ONCE=true
+MAX_EVENTS_PER_CYCLE=10
+```
+
+The GUI executable will appear here:
+
+```text
+agent\dist\easychecker-agent-ui.exe
+```
+
+Before running the `.exe`, copy the configured `.env` file next to the executable.
+
+Then run:
+
+```powershell
+.\dist\easychecker-agent-ui.exe
+```
+
 ## 5. Check that the system works
 
 After running the agent:

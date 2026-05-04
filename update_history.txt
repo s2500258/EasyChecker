@@ -388,3 +388,45 @@ EasyChecker Update History
 99. Refined expanded event-message presentation by:
    - reducing the font size and line height for denser log-style reading
    - switching the expanded message block to a light background with dark text for clearer contrast
+
+100. Strengthened live Windows service-stop collection by adding snapshot-based service transition detection in the agent:
+   - the agent now compares service states between polling cycles
+   - this allows `service_stopped` events to be generated even when Windows does not provide a usable `7036` event in practice
+   - service allowlists now accept both display names and internal service names
+
+101. Improved Windows service-event normalization in the agent by:
+   - translating numeric service states such as `4` and `1` into readable values like `running` and `stopped`
+   - improving localized service-name handling for live Windows collection
+   - reducing locale-related ambiguity in service-state messages
+
+102. Updated the frontend `Events` table so the `Code` column:
+   - has a fixed compact width
+   - wraps long values such as `SERVICE_STATE_POLL`
+   - always allows expanding the `Message` field, including shorter service messages
+
+103. Added the first Windows agent GUI mode:
+   - introduced a dedicated `agent_ui.py` entry point
+   - added a shared runner layer and thread-safe runtime state
+   - displayed start time, event counter, current status, last success, last error, and last event summary in a desktop window
+
+104. Added interactive agent controls in the Windows GUI:
+   - `Save settings`
+   - `Restart agent`
+   - `Minimize to tray`
+   - `Exit agent`
+   - editable fields for backend URL, poll interval, and the three collector toggles
+
+105. Added Windows tray support and branding for the GUI agent:
+   - minimize-to-tray behavior
+   - tray menu actions for reopen and exit
+   - use of `logo1.png` for the runtime window icon and tray icon
+
+106. Improved the Windows GUI agent packaging flow:
+   - added `pystray` and `Pillow` as Windows agent dependencies
+   - added `generate_exe_icon.py` to build a `.ico` file from `logo1.png`
+   - updated the Windows quick-start guide to describe building a windowed `.exe` with the project logo as the executable icon
+
+107. Improved the packaged Windows GUI agent experience by:
+   - suppressing transient PowerShell console flashes during service snapshot polling
+   - trimming displayed timestamps to second precision
+   - making the agent window more compact and non-resizable
