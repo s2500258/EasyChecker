@@ -1,3 +1,5 @@
+from datetime import datetime
+from pathlib import Path
 from threading import Event, Thread
 import tkinter as tk
 from tkinter import ttk
@@ -29,10 +31,13 @@ class AgentUI:
         self.root = tk.Tk()
         self.root.title("EasyChecker Agent")
         self.root.protocol("WM_DELETE_WINDOW", self.minimize_to_tray)
+        self._window_icon_image: Optional[tk.PhotoImage] = None
 
         self.status_text = tk.StringVar(value="Starting")
         self.events_sent_text = tk.StringVar(value="0")
-        self.started_at_text = tk.StringVar(value=self.state.snapshot().started_at)
+        self.started_at_text = tk.StringVar(
+            value=_format_timestamp_seconds(self.state.snapshot().started_at)
+        )
         self.last_success_text = tk.StringVar(value="N/A")
         self.last_error_text = tk.StringVar(value="None")
         self.last_event_summary_text = tk.StringVar(value="N/A")
@@ -61,6 +66,7 @@ class AgentUI:
         self._tray_thread: Optional[Thread] = None
 
         self._build_ui()
+        self._apply_window_icon()
         self._lock_window_size()
 
     def start(self) -> None:
@@ -188,10 +194,20 @@ class AgentUI:
         # Size the window to the actual content height so it ends right after
         # the control buttons / tray hint, then disable manual resizing.
         self.root.update_idletasks()
-        width = max(560, self.root.winfo_reqwidth())
-        height = self.root.winfo_reqheight()
+        width = max(540, self.root.winfo_reqwidth() - 20)
+        height = max(200, self.root.winfo_reqheight() - 20)
         self.root.geometry(f"{width}x{height}")
         self.root.resizable(False, False)
+
+    def _apply_window_icon(self) -> None:
+        icon_path = _find_logo_path()
+        if icon_path is None:
+            return
+        try:
+            self._window_icon_image = tk.PhotoImage(file=str(icon_path))
+            self.root.iconphoto(True, self._window_icon_image)
+        except tk.TclError:
+            self._window_icon_image = None
 
     def _add_kv_row(
         self, parent: ttk.LabelFrame, label: str, variable: tk.StringVar, row: int
@@ -249,10 +265,14 @@ class AgentUI:
         self.root.after(500, self._refresh_ui)
 
     def _apply_snapshot(self, snapshot: AgentRuntimeSnapshot) -> None:
-        self.started_at_text.set(snapshot.started_at)
+        self.started_at_text.set(_format_timestamp_seconds(snapshot.started_at))
         self.status_text.set(snapshot.last_status)
         self.events_sent_text.set(str(snapshot.events_sent))
-        self.last_success_text.set(snapshot.last_success_at or "N/A")
+        self.last_success_text.set(
+            _format_timestamp_seconds(snapshot.last_success_at)
+            if snapshot.last_success_at
+            else "N/A"
+        )
         self.last_error_text.set(snapshot.last_error or "None")
         self.last_event_summary_text.set(snapshot.last_event_summary or "N/A")
 
@@ -341,7 +361,7 @@ class AgentUI:
             self._start_tray_icon()
 
     def _start_tray_icon(self) -> None:
-        image = _build_tray_icon_image()
+        image = _load_tray_icon_image()
         menu = pystray.Menu(
             pystray.MenuItem("Open", self._on_tray_open),
             pystray.MenuItem("Exit", self._on_tray_exit),
@@ -371,14 +391,40 @@ class AgentUI:
         self.root.destroy()
 
 
-def _build_tray_icon_image():
-    # Generate a tiny in-memory icon so packaging does not depend on an extra
-    # .ico asset during the first GUI iteration.
+def _load_tray_icon_image():
+    # Reuse the same project logo for the tray icon and the window icon so the
+    # Windows agent keeps one consistent visual identity.
+    logo_path = _find_logo_path()
+    if logo_path is not None:
+        try:
+            return Image.open(logo_path)
+        except OSError:
+            pass
+
     image = Image.new("RGBA", (64, 64), (15, 29, 35, 255))
     draw = ImageDraw.Draw(image)
     draw.rounded_rectangle((6, 6, 58, 58), radius=12, fill=(18, 78, 88, 255))
     draw.text((18, 19), "EC", fill=(230, 250, 252, 255))
     return image
+
+
+def _find_logo_path() -> Optional[Path]:
+    candidates = [
+        Path(__file__).resolve().parent.parent / "logo1.png",
+        Path(__file__).resolve().parent / "logo1.png",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _format_timestamp_seconds(value: str) -> str:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return value
+    return parsed.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _save_env_updates(updates: dict[str, str]) -> None:
