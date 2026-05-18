@@ -1,5 +1,6 @@
 import json
 import os
+import socket
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -90,6 +91,7 @@ def get_state_file_path() -> Path:
 
 def collect_windows_events() -> list[AgentEvent]:
     settings = get_settings()
+    runtime_host = _detect_windows_host_name(settings.hostname)
     # Persisted state serves two purposes:
     # 1. record IDs keep Event Log reads incremental
     # 2. service snapshots let us detect live service stop/start transitions
@@ -133,7 +135,7 @@ def collect_windows_events() -> list[AgentEvent]:
         for raw_event in sorted(
             raw_events, key=lambda item: (item["timestamp"], item["record_id"])
         ):
-            normalized = _normalize_windows_event(raw_event, settings.hostname, settings)
+            normalized = _normalize_windows_event(raw_event, runtime_host, settings)
             if normalized is None:
                 continue
             normalized_events.append(normalized)
@@ -146,6 +148,7 @@ def collect_windows_events() -> list[AgentEvent]:
         service_events, current_service_snapshot = _collect_service_snapshot_events(
             previous_snapshot=previous_service_snapshot,
             settings=settings,
+            runtime_host=runtime_host,
         )
         normalized_events.extend(service_events)
 
@@ -668,7 +671,10 @@ def _get_service_snapshot_state(
 
 
 def _collect_service_snapshot_events(
-    *, previous_snapshot: dict[str, dict[str, str]], settings: Settings
+    *,
+    previous_snapshot: dict[str, dict[str, str]],
+    settings: Settings,
+    runtime_host: str,
 ) -> tuple[list[AgentEvent], dict[str, dict[str, str]]]:
     # Compare the current service table with the previous poll snapshot to
     # detect real live service transitions independently from Event Log quirks.
@@ -717,7 +723,7 @@ def _collect_service_snapshot_events(
         service_events.append(
             AgentEvent(
                 ts=change_timestamp,
-                host=settings.hostname,
+                host=runtime_host,
                 host_ip=settings.host_ip,
                 os_type="windows",
                 event_type="system",
@@ -810,6 +816,20 @@ def _normalize_service_status(value: Optional[str]) -> str:
         return ""
     text = value.strip().lower().replace(" ", "_")
     return SERVICE_STATUS_CODES.get(text, text)
+
+
+def _detect_windows_host_name(configured_host: str) -> str:
+    # Live Windows collection should prefer the machine's actual runtime host
+    # name over a stale sample/demo HOSTNAME that may still be present in .env.
+    candidates = [
+        os.environ.get("COMPUTERNAME"),
+        socket.gethostname(),
+        configured_host,
+    ]
+    for candidate in candidates:
+        if candidate and candidate.strip():
+            return candidate.strip()
+    return "unknown-host"
 
 
 def _evt_close(win32evtlog, handle) -> None:

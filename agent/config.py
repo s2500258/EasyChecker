@@ -70,13 +70,14 @@ def get_settings() -> Settings:
     backend_url = env_values.get(
         "BACKEND_URL", "http://127.0.0.1:8000/api/v1/ingest"
     )
+    event_source = env_values.get("EVENT_SOURCE", "sample")
     return Settings(
         backend_url=backend_url,
         poll_interval=int(env_values.get("POLL_INTERVAL", "5")),
-        hostname=env_values.get("HOSTNAME", socket.gethostname()),
+        hostname=_resolve_hostname(event_source=event_source, env_values=env_values),
         host_ip=env_values.get("HOST_IP") or _detect_host_ip(backend_url),
         os_type=env_values.get("OS_TYPE", "windows"),
-        event_source=env_values.get("EVENT_SOURCE", "sample"),
+        event_source=event_source,
         max_events_per_cycle=int(env_values.get("MAX_EVENTS_PER_CYCLE", "3")),
         run_once=_parse_bool(env_values.get("RUN_ONCE", "false")),
         collect_login_events=_parse_bool(
@@ -95,6 +96,15 @@ def get_settings() -> Settings:
             env_values.get("SERVICE_NAME_ALLOWLIST", "")
         ),
     )
+
+
+def _resolve_hostname(*, event_source: str, env_values: dict[str, str]) -> str:
+    # In sample mode, HOSTNAME from .env is useful for demos and simulated
+    # fleets. In live Windows mode, prefer the machine's real hostname so stale
+    # sample values do not leak into production-like telemetry.
+    if event_source.strip().lower() == "windows":
+        return os.environ.get("COMPUTERNAME") or socket.gethostname()
+    return env_values.get("HOSTNAME", socket.gethostname())
 
 
 def _load_env_file(path: Path) -> dict[str, str]:
