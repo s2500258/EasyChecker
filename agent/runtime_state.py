@@ -17,6 +17,7 @@ class AgentRuntimeSnapshot:
     last_error: str
     last_success_at: str
     last_event_summary: str
+    process_audit_status: str
     is_running: bool
     cycle_count: int
 
@@ -33,6 +34,7 @@ class AgentRuntimeState:
         self._last_error = ""
         self._last_success_at = ""
         self._last_event_summary = ""
+        self._process_audit_status = "Not checked"
         self._is_running = False
         self._cycle_count = 0
 
@@ -45,6 +47,7 @@ class AgentRuntimeState:
                 last_error=self._last_error,
                 last_success_at=self._last_success_at,
                 last_event_summary=self._last_event_summary,
+                process_audit_status=self._process_audit_status,
                 is_running=self._is_running,
                 cycle_count=self._cycle_count,
             )
@@ -76,6 +79,10 @@ class AgentRuntimeState:
         with self._lock:
             self._last_status = "Error"
             self._last_error = message
+
+    def mark_process_audit_status(self, message: str) -> None:
+        with self._lock:
+            self._process_audit_status = message
 
     def mark_stopped(self, status: str) -> None:
         with self._lock:

@@ -59,6 +59,7 @@ class Settings:
     collect_login_events: bool
     collect_process_events: bool
     collect_service_events: bool
+    auto_enable_process_audit: bool
     process_name_allowlist: list[str]
     service_name_allowlist: list[str]
 
@@ -88,6 +89,9 @@ def get_settings() -> Settings:
         ),
         collect_service_events=_parse_bool(
             env_values.get("COLLECT_SERVICE_EVENTS", "true")
+        ),
+        auto_enable_process_audit=_parse_bool(
+            env_values.get("AUTO_ENABLE_PROCESS_AUDIT", "false")
         ),
         process_name_allowlist=_parse_csv(
             env_values.get("PROCESS_NAME_ALLOWLIST", "")

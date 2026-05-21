@@ -4,7 +4,7 @@ from threading import Event, Thread
 import sys
 import tkinter as tk
 from tkinter import ttk
-from typing import Optional
+from typing import Optional 
 
 from config import get_env_file_path, get_settings
 from runner import run_agent_loop
@@ -33,6 +33,8 @@ class AgentUI:
         self.root.title("EasyChecker Agent")
         self.root.protocol("WM_DELETE_WINDOW", self.minimize_to_tray)
         self._window_icon_image: Optional[tk.PhotoImage] = None
+        self._window_size_mode = "initial"
+        self._window_size: tuple[int, int] = (0, 0)
 
         self.status_text = tk.StringVar(value="Starting")
         self.events_sent_text = tk.StringVar(value="0")
@@ -42,6 +44,7 @@ class AgentUI:
         self.last_success_text = tk.StringVar(value="N/A")
         self.last_error_text = tk.StringVar(value="None")
         self.last_event_summary_text = tk.StringVar(value="N/A")
+        self.process_audit_status_text = tk.StringVar(value="Not checked")
         self.tray_hint_text = tk.StringVar(value="")
         self.settings_save_text = tk.StringVar(value="")
 
@@ -102,6 +105,7 @@ class AgentUI:
         self._add_kv_row(status_frame, "Last success", self.last_success_text, 3)
         self._add_kv_row(status_frame, "Last event", self.last_event_summary_text, 4)
         self._add_kv_row(status_frame, "Last error", self.last_error_text, 5)
+        self._add_kv_row(status_frame, "Process audit", self.process_audit_status_text, 6)
 
         settings_frame = ttk.LabelFrame(container, text="Active Settings", padding=12)
         settings_frame.pack(fill="x", pady=(14, 0))
@@ -191,12 +195,27 @@ class AgentUI:
         )
         tray_hint.pack(anchor="w", pady=(6, 0))
 
-    def _lock_window_size(self) -> None:
+    def _lock_window_size(self, *, force: bool = False) -> None:
         # Size the window to the actual content height so it ends right after
         # the control buttons / tray hint, then disable manual resizing.
         self.root.update_idletasks()
         width = max(520, self.root.winfo_reqwidth() - 40)
-        height = max(180, self.root.winfo_reqheight() - 40)
+        compact_height = self.root.winfo_reqheight() - 40
+        required_height = self.root.winfo_reqheight()
+        process_audit_message = self.process_audit_status_text.get().strip().lower()
+        needs_extra_height = "disabled" in process_audit_message or "failed" in process_audit_message
+        height = max(180, required_height if needs_extra_height else compact_height)
+        size_mode = "expanded" if needs_extra_height else "compact"
+
+        if (
+            not force
+            and self._window_size_mode == size_mode
+            and self._window_size == (width, height)
+        ):
+            return
+
+        self._window_size_mode = size_mode
+        self._window_size = (width, height)
         self.root.geometry(f"{width}x{height}")
         self.root.resizable(False, False)
 
@@ -286,6 +305,8 @@ class AgentUI:
         )
         self.last_error_text.set(snapshot.last_error or "None")
         self.last_event_summary_text.set(snapshot.last_event_summary or "N/A")
+        self.process_audit_status_text.set(snapshot.process_audit_status or "Not checked")
+        self._lock_window_size()
 
     def _log_status(self, message: str) -> None:
         # The GUI already shows current values, so keep logging lightweight by

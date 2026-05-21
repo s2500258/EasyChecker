@@ -2,6 +2,7 @@ from threading import Event
 from time import sleep
 from typing import Callable, Optional
 
+from audit import ensure_process_creation_audit
 from collector import collect_events, get_state_file_path
 from config import get_env_file_path, get_runtime_dir, get_settings
 from runtime_state import AgentRuntimeState
@@ -30,6 +31,9 @@ def run_agent_loop(
     emit(f"Runtime directory: {get_runtime_dir()}")
     emit(f"Env file: {get_env_file_path()}")
     emit(f"State file: {get_state_file_path()}")
+    process_audit_status = ensure_process_creation_audit(settings)
+    state.mark_process_audit_status(process_audit_status.message)
+    emit(process_audit_status.message)
 
     try:
         while not stop_event.is_set():
