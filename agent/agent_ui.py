@@ -4,7 +4,7 @@ from threading import Event, Thread
 import sys
 import tkinter as tk
 from tkinter import ttk
-from typing import Optional
+from typing import Optional 
 
 from config import get_env_file_path, get_settings
 from runner import run_agent_loop
