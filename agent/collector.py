@@ -57,6 +57,11 @@ SERVICE_STATUS_CODES = {
     "6": "pause_pending",
     "7": "paused",
 }
+EASYCHECKER_PROCESS_HINTS = (
+    "easychecker",
+    "easychecker-agent",
+    "easychecker-agent-ui",
+)
 
 
 def collect_events() -> list[AgentEvent]:
@@ -374,6 +379,15 @@ def _normalize_process_created(
     parent_process = _pick_first(data, ["ParentProcessName", "CreatorProcessName"])
     username = _pick_first(data, ["SubjectUserName", "TargetUserName"])
 
+    # Ignore the agent's own helper processes so live 4688 collection stays
+    # focused on host activity instead of EasyChecker runtime noise.
+    if _is_easychecker_process_artifact(
+        process_name=process_name,
+        command_line=command_line,
+        parent_process=parent_process,
+    ):
+        return None
+
     if not _matches_allowlist(process_name, settings.process_name_allowlist):
         return None
 
@@ -541,6 +555,24 @@ def _normalize_text_for_matching(value: Optional[str]) -> str:
         .replace("ä", "a")
         .replace("ö", "o")
         .replace("å", "a")
+    )
+
+
+def _is_easychecker_process_artifact(
+    *,
+    process_name: Optional[str],
+    command_line: Optional[str],
+    parent_process: Optional[str],
+) -> bool:
+    haystacks = [
+        _normalize_text_for_matching(process_name),
+        _normalize_text_for_matching(command_line),
+        _normalize_text_for_matching(parent_process),
+    ]
+    return any(
+        hint in haystack
+        for haystack in haystacks
+        for hint in EASYCHECKER_PROCESS_HINTS
     )
 
 

@@ -55,9 +55,6 @@ class AgentUI:
         self.collect_services_edit = tk.BooleanVar(
             value=self.settings.collect_service_events
         )
-        self.auto_enable_process_audit_edit = tk.BooleanVar(
-            value=self.settings.auto_enable_process_audit
-        )
         self.run_once_text = tk.StringVar(value=str(self.settings.run_once))
         self.host_ip_text = tk.StringVar(value=self.settings.host_ip or "N/A")
         self.process_allowlist_text = tk.StringVar(
@@ -142,25 +139,19 @@ class AgentUI:
             self.collect_services_edit,
             4,
         )
-        self._add_checkbox_row(
-            settings_frame,
-            "Auto-enable 4688 audit",
-            self.auto_enable_process_audit_edit,
-            5,
-        )
-        self._add_kv_row(settings_frame, "Run once", self.run_once_text, 6)
-        self._add_kv_row(settings_frame, "Host IP", self.host_ip_text, 7)
+        self._add_kv_row(settings_frame, "Run once", self.run_once_text, 5)
+        self._add_kv_row(settings_frame, "Host IP", self.host_ip_text, 6)
         self._add_kv_row(
             settings_frame,
             "Process allowlist",
             self.process_allowlist_text,
-            8,
+            7,
         )
         self._add_kv_row(
             settings_frame,
             "Service allowlist",
             self.service_allowlist_text,
-            9,
+            8,
         )
 
         controls_frame = ttk.Frame(container, padding=(0, 14, 0, 0))
@@ -207,7 +198,11 @@ class AgentUI:
         # the control buttons / tray hint, then disable manual resizing.
         self.root.update_idletasks()
         width = max(520, self.root.winfo_reqwidth() - 40)
-        height = max(180, self.root.winfo_reqheight() - 40)
+        compact_height = self.root.winfo_reqheight() - 40
+        required_height = self.root.winfo_reqheight()
+        process_audit_message = self.process_audit_status_text.get().strip().lower()
+        needs_extra_height = "disabled" in process_audit_message or "failed" in process_audit_message
+        height = max(180, required_height if needs_extra_height else compact_height)
         self.root.geometry(f"{width}x{height}")
         self.root.resizable(False, False)
 
@@ -298,6 +293,7 @@ class AgentUI:
         self.last_error_text.set(snapshot.last_error or "None")
         self.last_event_summary_text.set(snapshot.last_event_summary or "N/A")
         self.process_audit_status_text.set(snapshot.process_audit_status or "Not checked")
+        self._lock_window_size()
 
     def _log_status(self, message: str) -> None:
         # The GUI already shows current values, so keep logging lightweight by
@@ -332,9 +328,6 @@ class AgentUI:
         self.collect_logins_edit.set(self.settings.collect_login_events)
         self.collect_processes_edit.set(self.settings.collect_process_events)
         self.collect_services_edit.set(self.settings.collect_service_events)
-        self.auto_enable_process_audit_edit.set(
-            self.settings.auto_enable_process_audit
-        )
         self.run_once_text.set(str(self.settings.run_once))
         self.host_ip_text.set(self.settings.host_ip or "N/A")
         self.process_allowlist_text.set(
@@ -358,9 +351,6 @@ class AgentUI:
             "COLLECT_LOGIN_EVENTS": str(self.collect_logins_edit.get()).lower(),
             "COLLECT_PROCESS_EVENTS": str(self.collect_processes_edit.get()).lower(),
             "COLLECT_SERVICE_EVENTS": str(self.collect_services_edit.get()).lower(),
-            "AUTO_ENABLE_PROCESS_AUDIT": str(
-                self.auto_enable_process_audit_edit.get()
-            ).lower(),
         }
         _save_env_updates(updates)
         self.settings_save_text.set(
