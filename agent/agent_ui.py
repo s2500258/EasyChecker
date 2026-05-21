@@ -33,6 +33,8 @@ class AgentUI:
         self.root.title("EasyChecker Agent")
         self.root.protocol("WM_DELETE_WINDOW", self.minimize_to_tray)
         self._window_icon_image: Optional[tk.PhotoImage] = None
+        self._window_size_mode = "initial"
+        self._window_size: tuple[int, int] = (0, 0)
 
         self.status_text = tk.StringVar(value="Starting")
         self.events_sent_text = tk.StringVar(value="0")
@@ -193,7 +195,7 @@ class AgentUI:
         )
         tray_hint.pack(anchor="w", pady=(6, 0))
 
-    def _lock_window_size(self) -> None:
+    def _lock_window_size(self, *, force: bool = False) -> None:
         # Size the window to the actual content height so it ends right after
         # the control buttons / tray hint, then disable manual resizing.
         self.root.update_idletasks()
@@ -203,6 +205,17 @@ class AgentUI:
         process_audit_message = self.process_audit_status_text.get().strip().lower()
         needs_extra_height = "disabled" in process_audit_message or "failed" in process_audit_message
         height = max(180, required_height if needs_extra_height else compact_height)
+        size_mode = "expanded" if needs_extra_height else "compact"
+
+        if (
+            not force
+            and self._window_size_mode == size_mode
+            and self._window_size == (width, height)
+        ):
+            return
+
+        self._window_size_mode = size_mode
+        self._window_size = (width, height)
         self.root.geometry(f"{width}x{height}")
         self.root.resizable(False, False)
 
