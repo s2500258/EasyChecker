@@ -175,6 +175,16 @@ Then run:
 .\dist\easychecker-agent-ui.exe
 ```
 
+If you want to check whether Windows Process Creation logging for Event ID `4688`
+is enabled before live testing, run PowerShell as Administrator and use:
+
+```powershell
+auditpol /get /subcategory:"Process Creation"
+```
+
+If the result does not show success auditing, `4688` process events may not
+appear until auditing is enabled.
+
 ## 5. Check that the system works
 
 After running the agent:

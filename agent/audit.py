@@ -121,6 +121,9 @@ def _enable_process_creation_audit() -> ProcessAuditStatus:
 
 
 def _run_auditpol(*command_parts: str) -> subprocess.CompletedProcess:
+    # Keep the helper tiny and centralized so both "check" and "enable" paths
+    # use the same encoding/error-handling rules. Hiding the console window is
+    # especially important when the agent is packaged as a windowed executable.
     run_kwargs = {
         "capture_output": True,
         "text": True,
@@ -134,6 +137,8 @@ def _run_auditpol(*command_parts: str) -> subprocess.CompletedProcess:
 
 
 def _parse_auditpol_csv_status(output: str) -> Optional[ProcessAuditStatus]:
+    # `/r` asks auditpol for report/CSV output. That shape is easier to parse
+    # reliably across localized Windows installs than the free-form text view.
     rows = [row for row in csv.reader(StringIO(output)) if row]
     if len(rows) < 2:
         return None
@@ -144,6 +149,8 @@ def _parse_auditpol_csv_status(output: str) -> Optional[ProcessAuditStatus]:
     if len(data_row) < 2:
         return None
 
+    # The last two columns describe which outcomes are included or explicitly
+    # excluded from auditing for the requested subcategory.
     inclusion_setting = data_row[-2].strip().lower()
     exclusion_setting = data_row[-1].strip().lower()
 

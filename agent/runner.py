@@ -18,6 +18,8 @@ def run_agent_loop(
     stop_event: Event,
     log: Optional[Callable[[str], None]] = None,
 ) -> None:
+    # Snapshot settings once for this worker instance. UI-triggered restarts
+    # create a brand-new worker so each run still picks up fresh .env values.
     settings = get_settings()
     emit = log or (lambda message: None)
 
@@ -31,6 +33,8 @@ def run_agent_loop(
     emit(f"Runtime directory: {get_runtime_dir()}")
     emit(f"Env file: {get_env_file_path()}")
     emit(f"State file: {get_state_file_path()}")
+    # Check Process Creation auditing once at startup rather than every poll
+    # cycle, because the audit policy itself is not event data and rarely changes.
     process_audit_status = ensure_process_creation_audit(settings)
     state.mark_process_audit_status(process_audit_status.message)
     emit(process_audit_status.message)
@@ -50,6 +54,8 @@ def run_agent_loop(
                     if stop_event.is_set():
                         break
                     result = send_event(event)
+                    # Keep the operator-facing summary short and stable so the
+                    # GUI can display the last sent event without overflowing.
                     alert_count = len(result.get("alerts", []))
                     summary = (
                         f"{event.event_type}/{event.category} "

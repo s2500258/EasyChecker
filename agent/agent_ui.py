@@ -290,6 +290,8 @@ class AgentUI:
         )
 
     def _refresh_ui(self) -> None:
+        # Poll shared runtime state on the Tk main thread instead of pushing
+        # updates from the worker thread directly into Tk widgets.
         snapshot = self.state.snapshot()
         self._apply_snapshot(snapshot)
         self.root.after(500, self._refresh_ui)
@@ -315,6 +317,8 @@ class AgentUI:
             self.state.mark_error(message.removeprefix("Agent cycle failed: "))
 
     def _start_worker(self) -> None:
+        # Run the collector/sender loop in a background thread so the GUI stays
+        # responsive while network I/O and Windows log reads are happening.
         self.stop_event = Event()
         self.worker_thread = Thread(
             target=run_agent_loop,
@@ -328,12 +332,16 @@ class AgentUI:
         self.worker_thread.start()
 
     def _stop_worker(self) -> None:
+        # Use a cooperative stop event instead of force-killing the thread so
+        # the worker has a chance to finish its current cycle cleanly.
         self.stop_event.set()
         if self.worker_thread is not None:
             self.worker_thread.join(timeout=3)
             self.worker_thread = None
 
     def _reload_settings(self) -> None:
+        # Re-read from disk after Save/Restart so the UI mirrors the effective
+        # .env content rather than any stale in-memory values.
         get_settings.cache_clear()
         self.settings = get_settings()
         self.backend_url_edit.set(self.settings.backend_url)
@@ -365,12 +373,16 @@ class AgentUI:
             "COLLECT_PROCESS_EVENTS": str(self.collect_processes_edit.get()).lower(),
             "COLLECT_SERVICE_EVENTS": str(self.collect_services_edit.get()).lower(),
         }
+        # Persist first, then let the operator decide when to restart. That
+        # keeps editing and runtime interruption as two explicit actions.
         _save_env_updates(updates)
         self.settings_save_text.set(
             "Settings saved to .env. Restart the agent to apply them to the running worker."
         )
 
     def restart_agent(self) -> None:
+        # Replace the shared runtime state object so counters/status in the UI
+        # clearly belong to the newly started worker instance.
         self.settings_save_text.set("Restarting agent with current .env settings...")
         self._stop_worker()
         self.state = AgentRuntimeState()
@@ -411,6 +423,7 @@ class AgentUI:
         self.root.after(0, self.exit_agent)
 
     def restore_from_tray(self) -> None:
+        # Restore and raise the window when the tray menu asks to reopen it.
         self.root.deiconify()
         self.root.lift()
         self.root.focus_force()
@@ -499,6 +512,8 @@ def _save_env_updates(updates: dict[str, str]) -> None:
         key, _value = line.split("=", 1)
         normalized_key = key.strip()
         if normalized_key in remaining:
+            # Replace only the keys the UI owns, leaving unrelated settings and
+            # human-added comments/order intact wherever possible.
             output_lines.append(f"{normalized_key}={remaining.pop(normalized_key)}")
         else:
             output_lines.append(line)

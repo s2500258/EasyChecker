@@ -33,6 +33,7 @@ The current project skeleton is working end to end:
 - Backend ingests, validates, stores, and lists events
 - Backend generates alerts for repeated failed logins
 - Windows-oriented agent can send sample events and collect live Windows events
+- Windows agent also has a small GUI mode with runtime status, editable core settings, and tray support
 - Frontend dashboard can display events and alerts from the backend
 
 ## MVP Features
@@ -44,6 +45,7 @@ The current project skeleton is working end to end:
 - Alert generation and tracking
 - Web dashboard for browsing events and alerts
 - Windows event collection MVP with sample fallback mode for safe testing
+- Optional startup check for Windows `4688` / Process Creation auditing
 
 ## Technology Stack
 
@@ -174,6 +176,15 @@ copy .env.example .env
 .\.venv\Scripts\python agent.py
 ```
 
+If you want the Windows agent control window instead of console mode, run:
+
+```powershell
+.\.venv\Scripts\python agent_ui.py
+```
+
+The GUI mode shows runtime status, sent event count, process-audit status, and
+editable core settings such as backend URL, poll interval, and collector toggles.
+
 ### 5. Build the Windows agent as an `.exe`
 
 Build the executable on a Windows machine:
@@ -211,6 +222,7 @@ Notes:
 - for live `windows` mode, run the executable as Administrator when access to `Security` events is required
 - the executable reads `.env` from its runtime directory
 - collector state is stored in `collector_state.json`
+- `AUTO_ENABLE_PROCESS_AUDIT=true` lets the agent try to enable Windows Process Creation auditing automatically at startup
 - if the executable directory is not writable, the state file falls back to:
   - `%LOCALAPPDATA%\EasyCheckerAgent\collector_state.json`
 

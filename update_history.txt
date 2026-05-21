@@ -430,3 +430,22 @@ EasyChecker Update History
    - suppressing transient PowerShell console flashes during service snapshot polling
    - trimming displayed timestamps to second precision
    - making the agent window more compact and non-resizable
+
+108. Added Windows Process Creation audit status handling in the agent:
+   - introduced startup checks for `Process Creation` auditing through `auditpol`
+   - added optional automatic enabling via `AUTO_ENABLE_PROCESS_AUDIT`
+   - surfaced the current process-audit status in the Windows agent GUI
+
+109. Improved live Windows host identity handling in the agent:
+   - live Windows mode now ignores `.env` `HOSTNAME` values that were intended for sample/demo mode
+   - the agent now prefers the real machine hostname for live Windows telemetry
+   - this prevents sample host names from leaking into real `system` and other live events
+
+110. Reduced agent-generated noise in live `4688` process telemetry by filtering out EasyChecker's own processes:
+   - self-generated Python / packaged agent / agent UI launches are now excluded
+   - filtering considers process name, command line, and parent process context
+
+111. Improved Windows GUI agent stability and readability by:
+   - refining the window refresh/resize logic to reduce flicker caused by repeated geometry updates
+   - keeping the process-audit status area compatible with compact and expanded window heights
+   - adding more explanatory comments across the new agent GUI, audit, runner, schema, and collector code paths

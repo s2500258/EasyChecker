@@ -19,7 +19,9 @@ FIELD_LIMITS = {
 }
 
 
-"""Normalized event model shared across the agent pipeline."""
+# Normalized event contract shared across collection, filtering, and sending.
+# Keeping one small model here makes it easier to preserve backend compatibility
+# even while the Windows collector evolves internally.
 @dataclass
 class AgentEvent:
     ts: str
@@ -36,6 +38,8 @@ class AgentEvent:
     # Keep host_ip optional with a default so older call sites or partially
     # updated agent files do not crash during live collection.
     host_ip: Optional[str] = None
+    # raw_data carries collector-specific detail for troubleshooting and future
+    # rules without forcing every field into the top-level backend schema.
     raw_data: Optional[dict[str, Any]] = None
 
     def model_dump(self) -> dict[str, Any]:
@@ -44,5 +48,7 @@ class AgentEvent:
         for field_name, limit in FIELD_LIMITS.items():
             value = payload.get(field_name)
             if isinstance(value, str) and len(value) > limit:
+                # Trim oversized fields on the agent side so one long Windows
+                # message cannot cause the entire ingest request to be rejected.
                 payload[field_name] = value[: limit - 3] + "..."
         return payload

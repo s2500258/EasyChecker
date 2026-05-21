@@ -535,6 +535,8 @@ def _is_stopped_service_state(*, state: Optional[str], message: Optional[str]) -
 
 
 def _classify_service_key(service_name: Optional[str]) -> Optional[str]:
+    # Collapse localized display names into a stable service key so backend
+    # rules can reason about "critical services" without depending on OS language.
     normalized_name = _normalize_text_for_matching(service_name)
     if not normalized_name:
         return None
@@ -564,6 +566,9 @@ def _is_easychecker_process_artifact(
     command_line: Optional[str],
     parent_process: Optional[str],
 ) -> bool:
+    # Process Creation auditing can easily capture the agent's own Python,
+    # PowerShell, or packaged executable launches. Filter those out here so the
+    # dashboard focuses on observed host activity instead of EasyChecker internals.
     haystacks = [
         _normalize_text_for_matching(process_name),
         _normalize_text_for_matching(command_line),
@@ -740,6 +745,8 @@ def _collect_service_snapshot_events(
             continue
 
         service_key = _classify_service_key(display_name)
+        # Treat a transition away from a running state as a stop event even if
+        # the target state is an intermediate "stop pending" value.
         is_stop_transition = (
             previous_status in {"running", "start_pending", "continue_pending"}
             and current_status in {"stopped", "stop_pending"}
@@ -846,6 +853,8 @@ def _read_windows_services() -> dict[str, dict[str, str]]:
 def _normalize_service_status(value: Optional[str]) -> str:
     if not value:
         return ""
+    # Service snapshots sometimes expose numeric Win32 status codes and
+    # sometimes expose friendly enum names. Normalize both into one vocabulary.
     text = value.strip().lower().replace(" ", "_")
     return SERVICE_STATUS_CODES.get(text, text)
 
