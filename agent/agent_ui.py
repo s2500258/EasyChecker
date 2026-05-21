@@ -42,6 +42,7 @@ class AgentUI:
         self.last_success_text = tk.StringVar(value="N/A")
         self.last_error_text = tk.StringVar(value="None")
         self.last_event_summary_text = tk.StringVar(value="N/A")
+        self.process_audit_status_text = tk.StringVar(value="Not checked")
         self.tray_hint_text = tk.StringVar(value="")
         self.settings_save_text = tk.StringVar(value="")
 
@@ -53,6 +54,9 @@ class AgentUI:
         )
         self.collect_services_edit = tk.BooleanVar(
             value=self.settings.collect_service_events
+        )
+        self.auto_enable_process_audit_edit = tk.BooleanVar(
+            value=self.settings.auto_enable_process_audit
         )
         self.run_once_text = tk.StringVar(value=str(self.settings.run_once))
         self.host_ip_text = tk.StringVar(value=self.settings.host_ip or "N/A")
@@ -102,6 +106,7 @@ class AgentUI:
         self._add_kv_row(status_frame, "Last success", self.last_success_text, 3)
         self._add_kv_row(status_frame, "Last event", self.last_event_summary_text, 4)
         self._add_kv_row(status_frame, "Last error", self.last_error_text, 5)
+        self._add_kv_row(status_frame, "Process audit", self.process_audit_status_text, 6)
 
         settings_frame = ttk.LabelFrame(container, text="Active Settings", padding=12)
         settings_frame.pack(fill="x", pady=(14, 0))
@@ -137,19 +142,25 @@ class AgentUI:
             self.collect_services_edit,
             4,
         )
-        self._add_kv_row(settings_frame, "Run once", self.run_once_text, 5)
-        self._add_kv_row(settings_frame, "Host IP", self.host_ip_text, 6)
+        self._add_checkbox_row(
+            settings_frame,
+            "Auto-enable 4688 audit",
+            self.auto_enable_process_audit_edit,
+            5,
+        )
+        self._add_kv_row(settings_frame, "Run once", self.run_once_text, 6)
+        self._add_kv_row(settings_frame, "Host IP", self.host_ip_text, 7)
         self._add_kv_row(
             settings_frame,
             "Process allowlist",
             self.process_allowlist_text,
-            7,
+            8,
         )
         self._add_kv_row(
             settings_frame,
             "Service allowlist",
             self.service_allowlist_text,
-            8,
+            9,
         )
 
         controls_frame = ttk.Frame(container, padding=(0, 14, 0, 0))
@@ -286,6 +297,7 @@ class AgentUI:
         )
         self.last_error_text.set(snapshot.last_error or "None")
         self.last_event_summary_text.set(snapshot.last_event_summary or "N/A")
+        self.process_audit_status_text.set(snapshot.process_audit_status or "Not checked")
 
     def _log_status(self, message: str) -> None:
         # The GUI already shows current values, so keep logging lightweight by
@@ -320,6 +332,9 @@ class AgentUI:
         self.collect_logins_edit.set(self.settings.collect_login_events)
         self.collect_processes_edit.set(self.settings.collect_process_events)
         self.collect_services_edit.set(self.settings.collect_service_events)
+        self.auto_enable_process_audit_edit.set(
+            self.settings.auto_enable_process_audit
+        )
         self.run_once_text.set(str(self.settings.run_once))
         self.host_ip_text.set(self.settings.host_ip or "N/A")
         self.process_allowlist_text.set(
@@ -343,6 +358,9 @@ class AgentUI:
             "COLLECT_LOGIN_EVENTS": str(self.collect_logins_edit.get()).lower(),
             "COLLECT_PROCESS_EVENTS": str(self.collect_processes_edit.get()).lower(),
             "COLLECT_SERVICE_EVENTS": str(self.collect_services_edit.get()).lower(),
+            "AUTO_ENABLE_PROCESS_AUDIT": str(
+                self.auto_enable_process_audit_edit.get()
+            ).lower(),
         }
         _save_env_updates(updates)
         self.settings_save_text.set(
