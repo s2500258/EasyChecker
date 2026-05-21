@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 from config import Settings
 
+PROCESS_CREATION_SUBCATEGORY = "/subcategory:Process Creation"
+
 
 @dataclass(frozen=True)
 class ProcessAuditStatus:
@@ -58,7 +60,7 @@ def _query_process_creation_audit() -> ProcessAuditStatus:
     result = _run_auditpol(
         "auditpol",
         "/get",
-        '/subcategory:"Process Creation"',
+        PROCESS_CREATION_SUBCATEGORY,
     )
     if result.returncode != 0:
         details = (result.stderr or result.stdout).strip() or "unknown error"
@@ -88,7 +90,7 @@ def _enable_process_creation_audit() -> ProcessAuditStatus:
     result = _run_auditpol(
         "auditpol",
         "/set",
-        '/subcategory:"Process Creation"',
+        PROCESS_CREATION_SUBCATEGORY,
         "/success:enable",
     )
     if result.returncode != 0:
